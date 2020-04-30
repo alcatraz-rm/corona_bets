@@ -9,6 +9,8 @@ __pycache__/
 # PyCharm project directory
 .idea/
 
+auth.json
+
 # Distribution / packaging
 .Python
 build/
