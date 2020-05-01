@@ -3,7 +3,9 @@ import tornado.web, tornado.escape, tornado.ioloop
 # import logging
 import signal
 from pprint import pprint
+
 from RequestHandler import Handler
+from CommandHandler import CommandHandler
 
 
 class Engine:
@@ -13,6 +15,7 @@ class Engine:
         self._myURL = '127.0.0.1'
         self._current_session = requests.Session()
         self._application = tornado.web.Application([(r"/", Handler), ])
+        self._command_handler = CommandHandler()
 
         self._fee = 0
         self._rate = 0
@@ -38,7 +41,11 @@ class Engine:
         response = requests.post(self._requests_url + 'sendMessage',
                                  {'chat_id': chat_id, 'text': 'Hello!'})
 
-    def _help(self):
+    def _send_reply(self, chat_id, text):
+        response = requests.post(self._requests_url + 'sendMessage',
+                                 {'chat_id': chat_id, 'text': text})
+
+    def _help(self, chat_id):
         pass
 
     def _backup(self):
@@ -54,18 +61,27 @@ class Engine:
     def launch_long_polling(self):
         new_offset = None
 
-        while True:
-            self._get_updates(new_offset)
-            last_update = self._get_last_update()
-            pprint(last_update)
+        try:
+            while True:
+                self._get_updates(new_offset)
+                last_update = self._get_last_update()
+                pprint(last_update)
 
-            if last_update:
-                last_update_id = last_update['update_id']
+                if last_update:
+                    last_update_id = last_update['update_id']
+                    chat_id = last_update['message']['from']['id']
 
-                chat_id = last_update['message']['chat']['id']
-                self._hello(chat_id)
+                    if last_update['message']['text'].startswith('/'):
+                        answer = self._command_handler.handle(last_update)
 
-                new_offset = last_update_id + 1
+                        self._send_reply(chat_id, answer)
+                        # self._hello(chat_id)
+                    else:
+                        self._hello(chat_id)
+
+                    new_offset = last_update_id + 1
+        except KeyboardInterrupt:
+            exit(0)
 
     def launch_hook(self):
         signal.signal(signal.SIGTERM, self._signal_term_handler)
