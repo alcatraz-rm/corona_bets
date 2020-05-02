@@ -1,5 +1,5 @@
-from Singleton import Singleton
-from EventParser import EventParser
+from Services.Singleton import Singleton
+from Services.EventParser import EventParser
 
 
 class DataKeeper(metaclass=Singleton):

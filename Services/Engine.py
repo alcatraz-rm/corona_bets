@@ -5,9 +5,9 @@ import requests
 from pprint import pprint
 
 # from RequestHandler import Handler
-from CommandHandler import CommandHandler
-from EventParser import EventParser
-from DataKeeper import DataKeeper
+from Services.CommandHandler import CommandHandler
+from Services.EventParser import EventParser
+from Services.DataKeeper import DataKeeper
 
 
 class Engine:

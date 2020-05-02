@@ -1,6 +1,6 @@
 import json
 
-from Engine import Engine
+from Services.Engine import Engine
 
 with open('auth.json', 'r', encoding='utf-8') as auth_file:
     token = json.load(auth_file)['access_token']
