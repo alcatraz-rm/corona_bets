@@ -3,11 +3,11 @@ import requests
 # import logging
 # import signal
 from pprint import pprint
-import datetime
 
 # from RequestHandler import Handler
 from CommandHandler import CommandHandler
 from EventParser import EventParser
+from DataKeeper import DataKeeper
 
 
 class Engine:
@@ -19,15 +19,8 @@ class Engine:
         # self._application = tornado.web.Application([(r"/", Handler), ])
         self._command_handler = CommandHandler()
         self._event_parser = EventParser()
-
-        self._date = None
-        self._cases = None
-        self._fee = 0
-        self._rate = 0
-        self._list_A = []
-        self._list_B = []
-
-        self._update_info()
+        self._data_keeper = DataKeeper()
+        self._data_keeper.update()
 
     # user model: {'login': "", 'name': ""}
 
@@ -43,68 +36,6 @@ class Engine:
             last_update = result[-1]
 
         return last_update
-
-    def _update_info(self):
-        data = self._event_parser.update_all()
-        self._cases = data['day']
-        self._date = self._parse_date(data['date'])
-        print(self._date)
-
-    @staticmethod
-    def _parse_date(date):
-        year = 2020
-        day_tmp = date.split()[3]
-
-        month_name = date.split()[4].lower()
-
-        if month_name == 'января':
-            month = 1
-        elif month_name == 'февраля':
-            month = 2
-        elif month_name == 'марта':
-            month = 3
-        elif month_name == 'апреля':
-            month = 4
-        elif month_name == 'мая':
-            month = 5
-        elif month_name == 'июня':
-            month = 6
-        elif month_name == 'июля':
-            month = 7
-        elif month_name == 'августа':
-            month = 8
-        elif month_name == 'сентября':
-            month = 9
-        elif month_name == 'октября':
-            month = 10
-        elif month_name == 'ноября':
-            month = 11
-        elif month_name == 'декабря':
-            month = 12
-        else:
-            print("Can't decode month")
-            return
-
-        if day_tmp.startswith('0'):
-            day = int(day_tmp[1])
-        else:
-            day = int(day_tmp)
-
-        time = date.split()[5].split(':')
-        hours = time[0]
-        minutes = time[1]
-
-        if hours.startswith('0'):
-            hours = int(hours[1])
-        else:
-            hours = int(hours)
-
-        if minutes.startswith('0'):
-            minutes = int(minutes[1])
-        else:
-            minutes = int(minutes)
-
-        return datetime.datetime(year, month, day, hours, minutes)
 
     def _hello(self, chat_id):
         response = requests.post(self._requests_url + 'sendMessage',
