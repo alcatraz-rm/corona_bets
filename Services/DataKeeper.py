@@ -33,6 +33,11 @@ class DataKeeper(metaclass=Singleton):
         with open("responses.json", 'r', encoding='utf-8') as responses_file:
             return json.load(responses_file)
 
+    def get_lang(self, chat_id):
+        for user in self._users:
+            if user['chat_id'] == chat_id:
+                return user['lang']
+
     def get_users(self, category):
         result = []
 
@@ -142,3 +147,11 @@ class DataKeeper(metaclass=Singleton):
 
     def update_rates(self, rate_A, rate_B):
         self._rate_A, self._rate_B = rate_A, rate_B
+
+    def set_lang(self, chat_id, lang):
+        for n, user in enumerate(self._users):
+            if user['chat_id'] == chat_id:
+                self._users[n]['lang'] = lang
+                break
+
+        self._commit()

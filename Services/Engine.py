@@ -25,8 +25,6 @@ class Engine:
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
 
-    # user model: {'login': "", 'name': "", 'chat_id': xxxxx, 'lang': 'en/ru'}
-
     def _get_updates(self, offset=None, timeout=30):
         return requests.get(self._requests_url + 'getUpdates',
                             {'timeout': timeout, 'offset': offset}).json()['result']
