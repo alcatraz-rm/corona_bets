@@ -26,6 +26,8 @@ class DataKeeper(metaclass=Singleton):
 
         self.responses = self._read_responses()
 
+        self.update()
+
     @staticmethod
     def _read_responses():
         with open("responses.json", 'r', encoding='utf-8') as responses_file:

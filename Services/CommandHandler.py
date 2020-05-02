@@ -67,6 +67,9 @@ class CommandHandler:
             if command == '/bet':
                 self._bet(command_object)
                 return
+            elif command == '/change_wallet':
+                self._change_wallet(chat_id)
+                return
 
         self._sender.send(chat_id, self._default_answer)
 
@@ -175,4 +178,10 @@ class CommandHandler:
                   f"{self._data_keeper.responses['19']['ru']} A: {self._data_keeper.get_rate_A()}\n"\
                   f"{self._data_keeper.responses['19']['ru']} B: {self._data_keeper.get_rate_B()}"
 
+        self._sender.send(chat_id, message)
+
+    def _change_wallet(self, chat_id):
+        self._data_keeper.set_state('bet_2', chat_id)
+
+        message = self._data_keeper.responses['11']['ru']
         self._sender.send(chat_id, message)
