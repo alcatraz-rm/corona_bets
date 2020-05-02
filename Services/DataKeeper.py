@@ -31,6 +31,23 @@ class DataKeeper(metaclass=Singleton):
         with open("responses.json", 'r', encoding='utf-8') as responses_file:
             return json.load(responses_file)
 
+    def get_users(self, category):
+        result = []
+
+        for user in self._users:
+            if user['category'] == category:
+                result.append(user)
+
+        return result
+
+    def reset_users(self):
+        for n in range(len(self._users)):
+            self._users[n]['state'] = None
+            self._users[n]['category'] = None
+            self._users[n]['vote_verified'] = False
+
+        self._commit()
+
     def update(self):
         data = self._event_parser.update()
 
@@ -113,7 +130,13 @@ class DataKeeper(metaclass=Singleton):
     def get_B_wallet(self):
         return self._event_B_wallet
 
+    def get_fee(self):
+        return self._fee
+
     def get_wallet(self, chat_id):
         for user in self._users:
             if user['chat_id'] == chat_id:
                 return user['wallet']
+
+    def update_rates(self, rate_A, rate_B):
+        self._rate_A, self._rate_B = rate_A, rate_B

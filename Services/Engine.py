@@ -40,15 +40,6 @@ class Engine:
 
         return last_update
 
-    def _hello(self, chat_id):
-        self._sender.send(chat_id, self._data_keeper.responses['1']['ru'])
-
-    def _backup(self):
-        pass
-
-    def _add_user_to_table(self):
-        pass
-
     @staticmethod
     def _signal_term_handler(signum, frame):
         pass
