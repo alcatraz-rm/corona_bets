@@ -1,3 +1,5 @@
+import json
+
 from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
 
@@ -6,27 +8,27 @@ class CommandHandler:
     def __init__(self, access_token):
         self._info_commands = ['/start', '/help', '/howmany', '/rate']
         self._action_commands = ['/bet']
-        self._default_answer = "Sorry, I don't know this command."
-        self._sender = Sender(access_token)
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
+        self._default_answer = self._data_keeper.responses['3']['ru']
+        self._sender = Sender(access_token)
 
-        self._announcement = f"Количество заболевших по состоянию на " \
-                             f"{self._data_keeper.get_date().isoformat(sep=' ')}: {self._data_keeper.get_cases_day()}\n" \
-                             f"Сейчас открыто голосование на результаты завтрашнего дня.\n\n" \
-                             f"A: заболевших будет <= y\nB: заболевших будет >= (y+1)\n\n" \
-                             f"Для голосования необходимо выбрать вариант кнопкой ниже (А или B). " \
-                             f"После выбора необходимо подтвердить свой голос переводом ETH " \
-                             f"и вводом своего кошелька отправления."
+        self._announcement = self._data_keeper.responses['4']['ru']\
+            .replace('{#1}', self._data_keeper.get_date().isoformat(sep=' '))\
+            .replace('{#2}', str(self._data_keeper.get_cases_day()))
+
+        #self._announcement = f"Количество заболевших по состоянию на " \
+         #                    f"{self._data_keeper.get_date().isoformat(sep=' ')}: {self._data_keeper.get_cases_day()}\n" \
+         #                    f"Сейчас открыто голосование на результаты завтрашнего дня.\n\n" \
+         #                    f"A: заболевших будет <= y\nB: заболевших будет >= (y+1)\n\n" \
+         #                    f"Для голосования необходимо выбрать вариант кнопкой ниже (А или B). " \
+         #                    f"После выбора необходимо подтвердить свой голос переводом ETH " \
+          #                   f"и вводом своего кошелька отправления."
 
     def _update_announcement(self):
-        self._announcement = f"Количество заболевших по состоянию на " \
-                             f"{self._data_keeper.get_date().isoformat(sep=' ')}: {self._data_keeper.get_cases_day()}\n" \
-                             f"Сейчас открыто голосование на результаты завтрашнего дня.\n\n" \
-                             f"A: заболевших будет <= y\nB: заболевших будет >= (y+1)\n\n" \
-                             f"Для голосования необходимо выбрать вариант кнопкой ниже (А или B). " \
-                             f"После выбора необходимо подтвердить свой голос переводом ETH " \
-                             f"и вводом (подтверждением) своего кошелька отправления."
+        self._announcement = self._data_keeper.responses['4']['ru']\
+            .replace('{#1}', self._data_keeper.get_date().isoformat(sep=' '))\
+            .replace('{#2}', self._data_keeper.get_cases_day())
 
     def handle_text_message(self, message_object):
         chat_id = message_object['message']['from']['id']
@@ -36,7 +38,7 @@ class CommandHandler:
             self.handle_state(chat_id, state, message_object)
             return
 
-        self._sender.send(chat_id, "Hello!")
+        self._sender.send(chat_id, self._data_keeper.responses['1']['ru'])
 
     def handle_command(self, command_object):
         command = command_object['message']['text']
@@ -154,18 +156,18 @@ class CommandHandler:
         self._data_keeper.set_state('bet_0', chat_id)
 
     def _start(self, chat_id):
-        self._sender.send(chat_id, "Welcome!")
+        self._sender.send(chat_id, "Добро пожаловать!")
 
     def _help(self, chat_id):
-        self._sender.send(chat_id, 'Up-to date coronavirus information: /howmany\nRate: /rate')
+        self._sender.send(chat_id, 'Актуальная информация по коронавирусу: /howmany\nКоэффициенты: /rate')
 
     def _howmany(self, chat_id):
         self._data_keeper.update()
         cases_day, cases_all = self._data_keeper.get_cases_day(), self._data_keeper.get_cases_all()
         date = self._data_keeper.get_date()
 
-        message = f'\nCases (last 24 hours): {cases_day}\nTotal cases: {cases_all}\nLast update: ' \
-                  f'{date.isoformat()}'
+        message = f'\nСлучаев за последние сутки: {cases_day}\nОбщее количество случаев: {cases_all}\nВремя последнего обновления: ' \
+                  f'{date.isoformat(sep=" ")}'
 
         self._sender.send(chat_id, message)
 

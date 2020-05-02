@@ -24,6 +24,13 @@ class DataKeeper(metaclass=Singleton):
         self._cases_day = None
         self._date = None
 
+        self.responses = self._read_responses()
+
+    @staticmethod
+    def _read_responses():
+        with open("responses.json", 'r', encoding='utf-8') as responses_file:
+            return json.load(responses_file)
+
     def update(self):
         data = self._event_parser.update()
 
@@ -72,7 +79,7 @@ class DataKeeper(metaclass=Singleton):
         chat_id = message['message']['from']['id']
 
         self._users.append({'name': name, 'login': login, 'chat_id': chat_id, 'state': None, 'wallet': None,
-                            'category': None, 'vote_verified': False})
+                            'category': None, 'vote_verified': False, 'lang': 'ru'})
 
         self._commit()
 
@@ -85,19 +92,26 @@ class DataKeeper(metaclass=Singleton):
         with open("users.json", "r", encoding="utf-8") as users_file:
             return json.load(users_file)
 
-    def get_cases_day(self): return self._cases_day
+    def get_cases_day(self):
+        return self._cases_day
 
-    def get_cases_all(self): return self._cases_all
+    def get_cases_all(self):
+        return self._cases_all
 
-    def get_date(self): return self._date
+    def get_date(self):
+        return self._date
 
-    def get_rate_A(self): return self._rate_A
+    def get_rate_A(self):
+        return self._rate_A
 
-    def get_rate_B(self): return self._rate_B
+    def get_rate_B(self):
+        return self._rate_B
 
-    def get_A_wallet(self): return self._event_A_wallet
+    def get_A_wallet(self):
+        return self._event_A_wallet
 
-    def get_B_wallet(self): return self._event_B_wallet
+    def get_B_wallet(self):
+        return self._event_B_wallet
 
     def get_wallet(self, chat_id):
         for user in self._users:

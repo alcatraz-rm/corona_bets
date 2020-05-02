@@ -1,4 +1,5 @@
 import requests
+import json
 # import tornado.web, tornado.escape, tornado.ioloop
 # import logging
 # import signal
@@ -40,7 +41,7 @@ class Engine:
         return last_update
 
     def _hello(self, chat_id):
-        self._sender.send(chat_id, 'Hello!')
+        self._sender.send(chat_id, self._data_keeper.responses['1']['ru'])
 
     def _backup(self):
         pass
