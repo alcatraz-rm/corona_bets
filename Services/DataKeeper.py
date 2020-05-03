@@ -1,5 +1,4 @@
 import json
-import uuid
 
 from Services.Singleton import Singleton
 from Services.EventParser import EventParser
@@ -96,8 +95,16 @@ class DataKeeper(metaclass=Singleton):
                 return
 
     def add_user(self, message):
-        name = f"{message['message']['from']['first_name']} {message['message']['from']['last_name']}"
-        login = message['message']['from']['username']
+        if 'last_name' in message['message']['from']:
+            name = f"{message['message']['from']['first_name']} {message['message']['from']['last_name']}"
+        else:
+            name = f"{message['message']['from']['first_name']}"
+
+        if 'username' in message['message']['from']:
+            login = message['message']['from']['username']
+        else:
+            login = None
+
         chat_id = message['message']['from']['id']
 
         self._users.append({'name': name, 'login': login, 'chat_id': chat_id, 'state': None, 'wallet': None,
@@ -117,7 +124,7 @@ class DataKeeper(metaclass=Singleton):
 
     def _commit(self):
         with open("users.json", "w", encoding="utf-8") as users_file:
-            json.dump(self._users, users_file, indent=4)
+            json.dump(self._users, users_file, indent=4, ensure_ascii=False)
 
     def add_wallet_to_last_bet(self, chat_id, wallet):
         for n, user in enumerate(self._users):

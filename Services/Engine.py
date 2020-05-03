@@ -10,7 +10,6 @@ from Services.CommandHandler import CommandHandler
 from Services.EventParser import EventParser
 from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
-from Services.EtherScan import EtherScan
 
 
 class Engine:
@@ -26,18 +25,9 @@ class Engine:
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
 
-    def _get_updates(self, offset=None, timeout=30):
+    def _get_updates(self, offset=None, timeout=10):
         return requests.get(self._requests_url + 'getUpdates',
                             {'timeout': timeout, 'offset': offset}).json()['result']
-
-    def _get_last_update(self):
-        result = self._get_updates()
-        last_update = None
-
-        if len(result) > 0:
-            last_update = result[-1]
-
-        return last_update
 
     @staticmethod
     def _signal_term_handler(signum, frame):
@@ -48,33 +38,33 @@ class Engine:
 
         try:
             while True:
-                self._get_updates(new_offset)
-                last_update = self._get_last_update()
-                pprint(last_update)
+                updates = self._get_updates(new_offset)
+                for update in updates:
+                    pprint(update)
 
-                if last_update:
-                    if 'message' in last_update:
-                        if self._data_keeper.is_new_user(last_update):
-                            self._data_keeper.add_user(last_update)
+                    if update:
+                        if 'message' in update:
+                            if self._data_keeper.is_new_user(update):
+                                self._data_keeper.add_user(update)
 
-                        last_update_id = last_update['update_id']
-                        chat_id = last_update['message']['from']['id']
+                            last_update_id = update['update_id']
+                            chat_id = update['message']['from']['id']
 
-                        if last_update['message']['text'].startswith('/'):
-                            self._command_handler.handle_command(last_update)
-                        else:
-                            self._command_handler.handle_text_message(last_update)
+                            if update['message']['text'].startswith('/'):
+                                self._command_handler.handle_command(update)
+                            else:
+                                self._command_handler.handle_text_message(update)
 
-                        new_offset = last_update_id + 1
+                            new_offset = last_update_id + 1
 
-                    elif 'callback_query' in last_update:
-                        last_update_id = last_update['update_id']
-                        chat_id = last_update['callback_query']['from']['id']
-                        state = self._data_keeper.get_state(chat_id)
+                        elif 'callback_query' in update:
+                            last_update_id = update['update_id']
+                            chat_id = update['callback_query']['from']['id']
+                            state = self._data_keeper.get_state(chat_id)
 
-                        self._command_handler.handle_state(chat_id, state, last_update)
+                            self._command_handler.handle_state(chat_id, state, update)
 
-                        new_offset = last_update_id + 1
+                            new_offset = last_update_id + 1
 
         except KeyboardInterrupt:
             exit(0)
