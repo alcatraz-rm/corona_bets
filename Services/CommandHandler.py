@@ -7,8 +7,9 @@ from Services.EtherScan import EtherScan
 
 class CommandHandler:
     def __init__(self, access_token, etherscan_token):
-        self._info_commands = ['/start', '/help', '/howmany', '/rate']
-        self._action_commands = ['/bet', '/change_wallet', '/set_lang']
+        self._info_commands = ['/start', '/help', '/howmany', '/currentRound', '/status']
+        self._action_commands = ['/bet', '/changeWallet', '/setLang']
+        self._admin_commands = ['/setWallet_A', '/setWallet_B', '/setFee', '/setVoteEndTime']
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
         self._sender = Sender(access_token)
@@ -52,7 +53,7 @@ class CommandHandler:
         command = command_object['message']['text'].split()
 
         lang = self._data_keeper.get_lang(chat_id)
-        if not lang and command[0] != '/set_lang':
+        if not lang and command[0] != '/setLang':
             message = self._data_keeper.responses['21']['ru']
             # TODO: add the same message in eng
             self._sender.send(chat_id, message)
@@ -71,18 +72,20 @@ class CommandHandler:
                 self._howmany(chat_id)
                 return
 
-            elif command[0] == '/rate':
-                self._rate(chat_id)
+            elif command[0] == '/currentRound':
+                self._current_round(chat_id)
                 return
 
         if command[0] in self._action_commands:
             if command[0] == '/bet':
                 self._bet(command_object)
                 return
-            elif command[0] == '/change_wallet':
+
+            elif command[0] == '/changeWallet':
                 self._change_wallet(chat_id)
                 return
-            elif command[0] == '/set_lang':
+
+            elif command[0] == '/setLang':
                 self._set_lang(chat_id, command_object)
                 return
 
@@ -100,7 +103,7 @@ class CommandHandler:
             if 'callback_query' in message:
                 category = message['callback_query']['data']
                 callback_query_id = message['callback_query']['id']
-                self._data_keeper.set_category(chat_id, category)
+                self._data_keeper.add_bet(chat_id, category)
 
                 self._sender.answer_callback_query(chat_id, callback_query_id, self._data_keeper.responses['5'][lang]
                                                    .replace('{#1}', category))
@@ -138,7 +141,9 @@ class CommandHandler:
             callback_query_id = message['callback_query']['id']
 
             if use_previous_wallet:
+                self._data_keeper.add_wallet_to_last_bet(chat_id, self._data_keeper.get_wallet(chat_id))
                 self._sender.answer_callback_query(chat_id, callback_query_id, self._data_keeper.responses['10'][lang])
+
                 self._data_keeper.set_state(None, chat_id)
 
                 # TODO: check payment and verify (or not) user's vote
@@ -154,9 +159,12 @@ class CommandHandler:
             wallet = message['message']['text']
 
             if not self._ether_scan.wallet_is_correct(wallet):
+
                 message = self._data_keeper.responses['22'][lang]
                 self._sender.send(chat_id, message)
                 return
+
+            self._data_keeper.add_wallet_to_last_bet(chat_id, wallet)
 
             self._data_keeper.set_wallet(wallet, chat_id)
             self._data_keeper.set_state(None, chat_id)
@@ -190,7 +198,7 @@ class CommandHandler:
         lang = self._data_keeper.get_lang(chat_id)
 
         self._sender.send(chat_id, f'{self._data_keeper.responses["14"][lang]}: /howmany\n'
-                                   f'{self._data_keeper.responses["15"][lang]}: /rate')
+                                   f'{self._data_keeper.responses["15"][lang]}: /currentRound')
 
     def _howmany(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
@@ -205,7 +213,7 @@ class CommandHandler:
 
         self._sender.send(chat_id, message)
 
-    def _rate(self, chat_id):
+    def _current_round(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
 
         message = f"A: {self._data_keeper.responses['2'][lang]} <= y\n" \

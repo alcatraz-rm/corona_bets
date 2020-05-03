@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from Services.Singleton import Singleton
 from Services.EventParser import EventParser
@@ -83,13 +84,6 @@ class DataKeeper(metaclass=Singleton):
                 self._commit()
                 return
 
-    def set_category(self, chat_id, category):
-        for index, user in enumerate(self._users):
-            if user['chat_id'] == chat_id:
-                self._users[index]['category'] = category
-                self._commit()
-                return
-
     def set_wallet(self, new_wallet_id, chat_id):
         for index, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
@@ -103,13 +97,30 @@ class DataKeeper(metaclass=Singleton):
         chat_id = message['message']['from']['id']
 
         self._users.append({'name': name, 'login': login, 'chat_id': chat_id, 'state': None, 'wallet': None,
-                            'category': None, 'vote_verified': False, 'lang': 'ru'})
+                            'bets': [], 'lang': 'ru'})
 
         self._commit()
+
+    def add_bet(self, chat_id, category):
+        for n, user in enumerate(self._users):
+            if user['chat_id'] == chat_id:
+                self._users[n]['bets'].append({'category': category,
+                                               'verified': False,
+                                               'wallet': None,
+                                               })
+                self._commit()
+                return
 
     def _commit(self):
         with open("users.json", "w", encoding="utf-8") as users_file:
             json.dump(self._users, users_file, indent=4)
+
+    def add_wallet_to_last_bet(self, chat_id, wallet):
+        for n, user in enumerate(self._users):
+            if user['chat_id'] == chat_id:
+                self._users[n]['bets'][-1]['wallet'] = wallet
+                self._commit()
+                return
 
     @staticmethod
     def _read_users():
