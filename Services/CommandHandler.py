@@ -34,10 +34,7 @@ class CommandHandler:
 
         lang = self._data_keeper.get_lang(chat_id)
         if not lang:
-            message = 'Не выбран язык. Для того, чтобы выбрать язык, используйте команду /set_lang в следующем формате:\n' \
-                      '/set_lang lang\n' \
-                      'Доступные языки: ru, en\n' \
-                      'Пожалуйста, выберите язык и повторите запрос.'
+            message = self._data_keeper.responses['21']['ru']
             # TODO: add the same message in eng
             self._sender.send(chat_id, message)
             return
@@ -56,10 +53,7 @@ class CommandHandler:
 
         lang = self._data_keeper.get_lang(chat_id)
         if not lang and command[0] != '/set_lang':
-            message = 'Не выбран язык. Для того, чтобы выбрать язык, используйте команду /set_lang в следующем формате:\n' \
-                      '/set_lang lang\n' \
-                      'Доступные языки: ru, en\n' \
-                      'Пожалуйста, выберите язык и повторите запрос.'
+            message = self._data_keeper.responses['21']['ru']
             # TODO: add the same message in eng
             self._sender.send(chat_id, message)
             return
@@ -97,10 +91,7 @@ class CommandHandler:
     def handle_state(self, chat_id, state, message):
         lang = self._data_keeper.get_lang(chat_id)
         if not lang:
-            message = 'Не выбран язык. Для того, чтобы выбрать язык, используйте команду /set_lang в следующем формате:\n' \
-                      '/set_lang lang\n' \
-                      'Доступные языки: ru, en\n' \
-                      'Пожалуйста, выберите язык и повторите запрос.'
+            message = self._data_keeper.responses['21']['ru']
             # TODO: add the same message in eng
             self._sender.send(chat_id, message)
             return
@@ -163,10 +154,9 @@ class CommandHandler:
             wallet = message['message']['text']
 
             if not self._ether_scan.wallet_is_correct(wallet):
-                message = 'Некорректный адрес кошелька. Повторите ввод.'
+                message = self._data_keeper.responses['22'][lang]
                 self._sender.send(chat_id, message)
                 return
-            # TODO: check wallet
 
             self._data_keeper.set_wallet(wallet, chat_id)
             self._data_keeper.set_state(None, chat_id)
@@ -238,9 +228,9 @@ class CommandHandler:
 
         if lang in ['en', 'ru']:
             self._data_keeper.set_lang(chat_id, lang)
-            message = 'Язык успешно установлен.'
+            message = self._data_keeper.responses['23'][lang]
             self._sender.send(chat_id, message)
         else:
-            message = 'Некорректно задан язык. Доступные языки: ru, en'
+            message = self._data_keeper.responses['24']['ru']
             # TODO: add the same message in eng
             self._sender.send(chat_id, message)
