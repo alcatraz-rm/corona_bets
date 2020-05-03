@@ -2,15 +2,17 @@ import json
 
 from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
+from Services.EtherScan import EtherScan
 
 
 class CommandHandler:
-    def __init__(self, access_token):
+    def __init__(self, access_token, etherscan_token):
         self._info_commands = ['/start', '/help', '/howmany', '/rate']
         self._action_commands = ['/bet', '/change_wallet', '/set_lang']
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
         self._sender = Sender(access_token)
+        self._ether_scan = EtherScan(etherscan_token)
 
     def _get_announcement(self, lang):
         return self._data_keeper.responses['4'][lang]\
@@ -159,6 +161,11 @@ class CommandHandler:
 
         elif state == 'bet_2':
             wallet = message['message']['text']
+
+            if not self._ether_scan.wallet_is_correct(wallet):
+                message = 'Некорректный адрес кошелька. Повторите ввод.'
+                self._sender.send(chat_id, message)
+                return
             # TODO: check wallet
 
             self._data_keeper.set_wallet(wallet, chat_id)

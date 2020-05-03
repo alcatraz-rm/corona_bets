@@ -10,16 +10,17 @@ from Services.CommandHandler import CommandHandler
 from Services.EventParser import EventParser
 from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
+from Services.EtherScan import EtherScan
 
 
 class Engine:
-    def __init__(self, access_token):
+    def __init__(self, access_token, etherscan_token):
         self._access_token = access_token
         self._requests_url = f'https://api.telegram.org/bot{access_token}/'
         # self._myURL = '127.0.0.1'
         # self._current_session = requests.Session()
         # self._application = tornado.web.Application([(r"/", Handler), ])
-        self._command_handler = CommandHandler(self._access_token)
+        self._command_handler = CommandHandler(self._access_token, etherscan_token)
         self._event_parser = EventParser()
         self._sender = Sender(self._access_token)
         self._data_keeper = DataKeeper()

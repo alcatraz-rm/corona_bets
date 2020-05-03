@@ -3,7 +3,7 @@ import json
 from Services.Engine import Engine
 
 with open('auth.json', 'r', encoding='utf-8') as auth_file:
-    token = json.load(auth_file)['access_token']
+    data = json.load(auth_file)
 
-engine = Engine(token)
+engine = Engine(data['access_token'], data['api_token_etherscan'])
 engine.launch_long_polling()
