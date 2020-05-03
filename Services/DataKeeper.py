@@ -39,6 +39,11 @@ class DataKeeper(metaclass=Singleton):
             if user['chat_id'] == chat_id:
                 return user['lang']
 
+    def get_bets(self, chat_id):
+        for user in self._users:
+            if user['chat_id'] == chat_id:
+                return user['bets']
+
     def get_users(self, category):
         result = []
 
@@ -51,8 +56,7 @@ class DataKeeper(metaclass=Singleton):
     def reset_users(self):
         for n in range(len(self._users)):
             self._users[n]['state'] = None
-            self._users[n]['category'] = None
-            self._users[n]['vote_verified'] = False
+            self._users[n]['bets'] = []
 
         self._commit()
 
@@ -105,7 +109,7 @@ class DataKeeper(metaclass=Singleton):
         for n, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 self._users[n]['bets'].append({'category': category,
-                                               'verified': False,
+                                               'confirmed': False,
                                                'wallet': None,
                                                })
                 self._commit()

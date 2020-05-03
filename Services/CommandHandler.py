@@ -76,6 +76,10 @@ class CommandHandler:
                 self._current_round(chat_id)
                 return
 
+            elif command[0] == '/status':
+                self._status(chat_id)
+                return
+
         if command[0] in self._action_commands:
             if command[0] == '/bet':
                 self._bet(command_object)
@@ -230,3 +234,26 @@ class CommandHandler:
             message = self._data_keeper.responses['24']['ru']
             # TODO: add the same message in eng
             self._sender.send(chat_id, message)
+
+    def _status(self, chat_id):
+        bets = self._data_keeper.get_bets(chat_id)
+        lang = self._data_keeper.get_lang(chat_id)
+
+        if len(bets) > 0:
+            message = ''
+
+            for n, bet in enumerate(bets):
+                if bet['confirmed']:
+                    status = self._data_keeper.responses["29"][lang]
+                else:
+                    status = self._data_keeper.responses["30"][lang]
+
+                message += f'{self._data_keeper.responses["25"][lang]} {n+1}:' \
+                           f'\n    {self._data_keeper.responses["26"][lang]}: {bet["category"]}' \
+                           f'\n    {self._data_keeper.responses["27"][lang]}: {bet["wallet"]}' \
+                           f'\n    {self._data_keeper.responses["28"][lang]}: {status}\n\n'
+
+            self._sender.send(chat_id, message)
+        else:
+            self._sender.send(chat_id, self._data_keeper.responses["31"][lang])
+
