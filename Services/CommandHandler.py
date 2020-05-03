@@ -8,7 +8,7 @@ from Services.EtherScan import EtherScan
 class CommandHandler:
     def __init__(self, access_token, etherscan_token):
         self._info_commands = ['/start', '/help', '/howmany', '/currentRound', '/status']
-        self._action_commands = ['/bet', '/changeWallet', '/setLang']
+        self._action_commands = ['/bet', '/setLang']
         self._admin_commands = ['/setWallet_A', '/setWallet_B', '/setFee', '/setVoteEndTime']
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
@@ -79,10 +79,6 @@ class CommandHandler:
         if command[0] in self._action_commands:
             if command[0] == '/bet':
                 self._bet(command_object)
-                return
-
-            elif command[0] == '/changeWallet':
-                self._change_wallet(chat_id)
                 return
 
             elif command[0] == '/setLang':
@@ -221,14 +217,6 @@ class CommandHandler:
                   f"{self._data_keeper.responses['19'][lang]} A: {self._data_keeper.get_rate_A()}\n"\
                   f"{self._data_keeper.responses['19'][lang]} B: {self._data_keeper.get_rate_B()}"
 
-        self._sender.send(chat_id, message)
-
-    def _change_wallet(self, chat_id):
-        lang = self._data_keeper.get_lang(chat_id)
-
-        self._data_keeper.set_state('bet_2', chat_id)
-
-        message = self._data_keeper.responses['11'][lang]
         self._sender.send(chat_id, message)
 
     def _set_lang(self, chat_id, message):
