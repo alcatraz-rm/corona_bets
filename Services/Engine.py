@@ -1,4 +1,8 @@
 import requests
+import logging
+from datetime import datetime
+import os
+import platform
 import json
 # import tornado.web, tornado.escape, tornado.ioloop
 # import logging
@@ -14,6 +18,9 @@ from Services.Sender import Sender
 
 class Engine:
     def __init__(self, access_token, etherscan_token):
+        self._logger = logging.getLogger('Engine')
+        self._configure_logger()
+
         self._access_token = access_token
         self._requests_url = f'https://api.telegram.org/bot{access_token}/'
         # self._myURL = '127.0.0.1'
@@ -24,6 +31,16 @@ class Engine:
         self._sender = Sender(self._access_token)
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
+
+    def _configure_logger(self):
+        self._logger.setLevel(logging.INFO)
+
+        fh = logging.FileHandler("log.log")
+        fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        self._logger.addHandler(fh)
+
+        self._logger.info(f'Platform: {platform.system().lower()}')
+        self._logger.info(f'WD: {os.getcwd()}')
 
     def _get_updates(self, offset=None, timeout=10):
         return requests.get(self._requests_url + 'getUpdates',
@@ -40,6 +57,7 @@ class Engine:
             while True:
                 updates = self._get_updates(new_offset)
                 for update in updates:
+                    self._logger.info(json.dumps(update, indent=4, ensure_ascii=False))
                     pprint(update)
 
                     if update:
