@@ -44,11 +44,12 @@ class Engine:
 
                     if update:
                         if 'message' in update:
+                            chat_id = update['message']['from']['id']
+
                             if self._data_keeper.is_new_user(update):
                                 self._data_keeper.add_user(update)
 
                             last_update_id = update['update_id']
-                            chat_id = update['message']['from']['id']
 
                             if update['message']['text'].startswith('/'):
                                 self._command_handler.handle_command(update)
@@ -62,21 +63,24 @@ class Engine:
                             chat_id = update['callback_query']['from']['id']
                             state = self._data_keeper.get_state(chat_id)
 
-                            self._command_handler.handle_state(chat_id, state, update)
+                            if state:
+                                self._command_handler.handle_state(chat_id, state, update)
+                            else:
+                                self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
 
                             new_offset = last_update_id + 1
 
         except KeyboardInterrupt:
             exit(0)
 
-   # def launch_hook(self):
-        #signal.signal(signal.SIGTERM, self._signal_term_handler)
-        #try:
-       #     set_hook = self._current_session.get(self._requests_url + "setWebhook?url=%s" % self._myURL)
-      #      if set_hook.status_code != 200:
-       #         print("Can't set hook: %s. Quit." % set_hook.text)
-      #          exit(1)
-     #       self._application.listen(8888)
-    #        tornado.ioloop.IOLoop.current().start()
-   #     except KeyboardInterrupt:
- #           self._signal_term_handler(signal.SIGTERM, None)
+# def launch_hook(self):
+# signal.signal(signal.SIGTERM, self._signal_term_handler)
+# try:
+#     set_hook = self._current_session.get(self._requests_url + "setWebhook?url=%s" % self._myURL)
+#      if set_hook.status_code != 200:
+#         print("Can't set hook: %s. Quit." % set_hook.text)
+#          exit(1)
+#       self._application.listen(8888)
+#        tornado.ioloop.IOLoop.current().start()
+#     except KeyboardInterrupt:
+#           self._signal_term_handler(signal.SIGTERM, None)

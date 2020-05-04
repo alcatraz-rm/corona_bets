@@ -7,7 +7,7 @@ from Services.EtherScan import EtherScan
 
 class CommandHandler:
     def __init__(self, access_token, etherscan_token):
-        self._info_commands = ['/start', '/help', '/howmany', '/currentRound', '/status']
+        self._info_commands = ['/start', '/help', '/howMany', '/currentRound', '/status']
         self._action_commands = ['/bet', '/setLang']
         self._admin_commands = ['/setWallet_A', '/setWallet_B', '/setFee', '/setVoteEndTime']
         self._data_keeper = DataKeeper()
@@ -16,8 +16,8 @@ class CommandHandler:
         self._ether_scan = EtherScan(etherscan_token)
 
     def _get_announcement(self, lang):
-        return self._data_keeper.responses['4'][lang]\
-            .replace('{#1}', self._data_keeper.get_date().isoformat(sep=' '))\
+        return self._data_keeper.responses['4'][lang] \
+            .replace('{#1}', self._data_keeper.get_date().isoformat(sep=' ')) \
             .replace('{#2}', str(self._data_keeper.get_cases_day()))
 
     def _update(self):
@@ -68,7 +68,7 @@ class CommandHandler:
                 self._help(chat_id)
                 return
 
-            elif command[0] == '/howmany':
+            elif command[0] == '/howMany':
                 self._howmany(chat_id)
                 return
 
@@ -122,7 +122,7 @@ class CommandHandler:
                 if not wallet:
                     message_2 = self._data_keeper.responses['7'][lang]
 
-                    self._sender.send(chat_id, message_2)
+                    self._sender.send(chat_id, message_2, reply_keyboard_hide=True)
 
                     self._data_keeper.set_state('bet_2', chat_id)
                 else:
@@ -153,13 +153,12 @@ class CommandHandler:
                 self._data_keeper.set_state('bet_2', chat_id)
 
                 message = self._data_keeper.responses['11'][lang]
-                self._sender.send(chat_id, message)
+                self._sender.send(chat_id, message, reply_keyboard_hide=True)
 
         elif state == 'bet_2':
             wallet = message['message']['text']
 
             if not self._ether_scan.wallet_is_correct(wallet):
-
                 message = self._data_keeper.responses['22'][lang]
                 self._sender.send(chat_id, message)
                 return
@@ -170,7 +169,7 @@ class CommandHandler:
             self._data_keeper.set_state(None, chat_id)
 
             success_message = self._data_keeper.responses['12'][lang]
-            self._sender.send(chat_id, success_message)
+            self._sender.send_reply_keyboard(chat_id, success_message)
 
             # TODO: check payment and verify (or not) user's vote
 
@@ -192,13 +191,15 @@ class CommandHandler:
         # TODO: write start message
         lang = self._data_keeper.get_lang(chat_id)
 
-        self._sender.send(chat_id, self._data_keeper.responses['13'][lang])
+        self._sender.send_reply_keyboard(chat_id, self._data_keeper.responses['13'][lang])
 
     def _help(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
 
-        self._sender.send(chat_id, f'{self._data_keeper.responses["14"][lang]}: /howmany\n'
-                                   f'{self._data_keeper.responses["15"][lang]}: /currentRound')
+        self._sender.send(chat_id, f'{self._data_keeper.responses["14"][lang]}: /howMany\n'
+                                   f'{self._data_keeper.responses["15"][lang]}: /currentRound\n\n'
+                                   f'{self._data_keeper.responses["32"][lang]}: /bet\n'
+                                   f'{self._data_keeper.responses["33"][lang]}: /status\n')
 
     def _howmany(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
@@ -217,8 +218,8 @@ class CommandHandler:
         lang = self._data_keeper.get_lang(chat_id)
 
         message = f"A: {self._data_keeper.responses['2'][lang]} <= y\n" \
-                  f"B: {self._data_keeper.responses['2'][lang]} >= (y+1)\n\n"\
-                  f"{self._data_keeper.responses['19'][lang]} A: {self._data_keeper.get_rate_A()}\n"\
+                  f"B: {self._data_keeper.responses['2'][lang]} >= (y+1)\n\n" \
+                  f"{self._data_keeper.responses['19'][lang]} A: {self._data_keeper.get_rate_A()}\n" \
                   f"{self._data_keeper.responses['19'][lang]} B: {self._data_keeper.get_rate_B()}"
 
         self._sender.send(chat_id, message)
@@ -248,7 +249,7 @@ class CommandHandler:
                 else:
                     status = self._data_keeper.responses["30"][lang]
 
-                message += f'{self._data_keeper.responses["25"][lang]} {n+1}:' \
+                message += f'{self._data_keeper.responses["25"][lang]} {n + 1}:' \
                            f'\n    {self._data_keeper.responses["26"][lang]}: {bet["category"]}' \
                            f'\n    {self._data_keeper.responses["27"][lang]}: {bet["wallet"]}' \
                            f'\n    {self._data_keeper.responses["28"][lang]}: {status}\n\n'
@@ -256,4 +257,3 @@ class CommandHandler:
             self._sender.send(chat_id, message)
         else:
             self._sender.send(chat_id, self._data_keeper.responses["31"][lang])
-
