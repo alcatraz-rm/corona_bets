@@ -1,5 +1,6 @@
 import requests
 import json
+from pprint import pprint
 
 
 class Sender:
@@ -20,22 +21,25 @@ class Sender:
         response = requests.post(self._requests_url + 'sendMessage',
                                  {'chat_id': chat_id, 'text': text,
                                   'reply_markup': reply_markup})
+        pprint(response.json())
 
     def send(self, chat_id, text, reply_keyboard_hide=False):
         if reply_keyboard_hide:
             response = requests.post(self._requests_url + 'sendMessage',
                                      {'chat_id': chat_id, 'text': text,
                                       'reply_markup': json.dumps(self._reply_keyboard_hide)})
-            print(response.text)
+            pprint(response.json())
         else:
             response = requests.post(self._requests_url + 'sendMessage',
                                      {'chat_id': chat_id, 'text': text})
+            pprint(response.json())
 
     def send_with_reply_markup(self, chat_id, text, reply_markup):
         reply_markup = json.dumps({'inline_keyboard': reply_markup})
         response = requests.post(self._requests_url + 'sendMessage',
                                  {'chat_id': chat_id, 'text': text,
                                   'reply_markup': reply_markup})
+        pprint(response.json())
 
     def answer_callback_query(self, chat_id, callback_query_id, text):
         if text:
@@ -44,3 +48,5 @@ class Sender:
         else:
             response = requests.post(self._requests_url + 'answerCallbackQuery',
                                      {'chat_id': chat_id, 'callback_query_id': callback_query_id})
+
+        pprint(response.json())

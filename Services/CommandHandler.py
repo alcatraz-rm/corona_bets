@@ -93,6 +93,7 @@ class CommandHandler:
 
     def handle_state(self, chat_id, state, message):
         lang = self._data_keeper.get_lang(chat_id)
+
         if not lang:
             message = self._data_keeper.responses['21']['ru']
             # TODO: add the same message in eng

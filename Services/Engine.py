@@ -55,15 +55,64 @@ class Engine:
         return requests.get(self._requests_url + 'getUpdates',
                             {'timeout': timeout, 'offset': offset}).json()['result']
 
+    def _log_update(self, update):
+        log_message = {}
+
+        if 'message' in update:
+            log_message['type'] = 'message'
+
+            chat_id = update['message']['from']['id']
+            log_message['from'] = {'chat_id': chat_id}
+
+            if 'last_name' in update['message']['from']:
+                name = f"{update['message']['from']['first_name']} {update['message']['from']['last_name']}"
+            else:
+                name = f"{update['message']['from']['first_name']}"
+
+            log_message['from']['name'] = name
+
+            if 'username' in update['message']['from']:
+                log_message['from']['username'] = update['message']['from']['username']
+
+            log_message['text'] = update['message']['text']
+            log_message['update_id'] = update['update_id']
+
+        elif 'callback_query' in update:
+            log_message['type'] = 'callback_query'
+            log_message['from'] = {'chat_id':  update['callback_query']['from']['id']}
+
+            if 'last_name' in update['callback_query']['from']:
+                name = f"{update['callback_query']['from']['first_name']} " \
+                       f"{update['callback_query']['from']['last_name']}"
+            else:
+                name = f"{update['callback_query']['from']['first_name']}"
+
+            log_message['from']['name'] = name
+
+            if 'username' in update['callback_query']['from']:
+                log_message['from']['username'] = update['callback_query']['from']['username']
+
+            log_message['update_id'] = update['update_id']
+            log_message['callback_query_id'] = update['callback_query']['id']
+            log_message['data'] = update['callback_query']['data']
+
+        else:
+            log_message = update
+
+        self._logger.info(f'New update: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
+
     def launch_long_polling(self):
+        self._logger.info('Launching long polling...')
+
         new_offset = None
 
         try:
             while True:
                 updates = self._get_updates(new_offset)
                 for update in updates:
-                    self._logger.info(json.dumps(update, indent=4, ensure_ascii=False))
-                    pprint(update)
+                    # pprint(update)
+
+                    self._log_update(update)
 
                     if update:
                         if 'message' in update:
@@ -94,23 +143,32 @@ class Engine:
                             new_offset = last_update_id + 1
 
         except KeyboardInterrupt:
+            self._logger.info('Keyboard interrupt occurred. Quit.')
             exit(0)
 
-    def launch_hook(self):
+    def launch_hook(self, address):
+        self._logger.info('Launching webhook...')
+
         signal.signal(signal.SIGTERM, self._signal_term_handler)
+
         try:
-            set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % 'https://c303d18b.ngrok.io')
-            print(set_hook.json())
+            set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
+            self._logger.debug(set_hook.json())
+
             if set_hook.status_code != 200:
-                print("Can't set hook: %s. Quit." % set_hook.text)
+                self._logger.error(f"Can't set hook to address: {address}")
                 exit(1)
+
+            self._logger.info('Start listening...')
 
             self._application.listen(8888)
             tornado.ioloop.IOLoop.current().start()
 
         except KeyboardInterrupt:
+            self._logger.info('Keyboard interrupt occurred. Deleting webhook...')
             self._signal_term_handler(signal.SIGTERM, None)
 
     def _signal_term_handler(self, signum, frame):
         response = requests.post(self._requests_url + "deleteWebhook")
-        print(response.json())
+        self._logger.debug(response.json())
+        self._logger.info('Webhook was successfully deleted.')
