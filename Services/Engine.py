@@ -4,9 +4,10 @@ from datetime import datetime
 import os
 import platform
 import json
-# import tornado.web, tornado.escape, tornado.ioloop
+import signal
+import tornado.web, tornado.escape, tornado.ioloop
+
 # import logging
-# import signal
 from pprint import pprint
 
 # from RequestHandler import Handler
@@ -14,6 +15,8 @@ from Services.CommandHandler import CommandHandler
 from Services.EventParser import EventParser
 from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
+
+from Services.Handler import Handler
 
 
 class Engine:
@@ -32,6 +35,12 @@ class Engine:
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
 
+        self._application = tornado.web.Application([
+            (r"/",
+             Handler,
+             dict(data_keeper=self._data_keeper, command_handler=self._command_handler, sender=self._sender)),
+        ])
+
     def _configure_logger(self):
         self._logger.setLevel(logging.INFO)
 
@@ -45,10 +54,6 @@ class Engine:
     def _get_updates(self, offset=None, timeout=10):
         return requests.get(self._requests_url + 'getUpdates',
                             {'timeout': timeout, 'offset': offset}).json()['result']
-
-    @staticmethod
-    def _signal_term_handler(signum, frame):
-        pass
 
     def launch_long_polling(self):
         new_offset = None
@@ -91,14 +96,21 @@ class Engine:
         except KeyboardInterrupt:
             exit(0)
 
-# def launch_hook(self):
-# signal.signal(signal.SIGTERM, self._signal_term_handler)
-# try:
-#     set_hook = self._current_session.get(self._requests_url + "setWebhook?url=%s" % self._myURL)
-#      if set_hook.status_code != 200:
-#         print("Can't set hook: %s. Quit." % set_hook.text)
-#          exit(1)
-#       self._application.listen(8888)
-#        tornado.ioloop.IOLoop.current().start()
-#     except KeyboardInterrupt:
-#           self._signal_term_handler(signal.SIGTERM, None)
+    def launch_hook(self):
+        signal.signal(signal.SIGTERM, self._signal_term_handler)
+        try:
+            set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % 'https://c303d18b.ngrok.io')
+            print(set_hook.json())
+            if set_hook.status_code != 200:
+                print("Can't set hook: %s. Quit." % set_hook.text)
+                exit(1)
+
+            self._application.listen(8888)
+            tornado.ioloop.IOLoop.current().start()
+
+        except KeyboardInterrupt:
+            self._signal_term_handler(signal.SIGTERM, None)
+
+    def _signal_term_handler(self, signum, frame):
+        response = requests.post(self._requests_url + "deleteWebhook")
+        print(response.json())
