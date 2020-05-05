@@ -1,4 +1,3 @@
-from etherscan.accounts import Account
 from string import ascii_letters
 
 
