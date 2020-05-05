@@ -26,9 +26,7 @@ class Engine:
 
         self._access_token = access_token
         self._requests_url = f'https://api.telegram.org/bot{access_token}/'
-        # self._myURL = '127.0.0.1'
-        # self._current_session = requests.Session()
-        # self._application = tornado.web.Application([(r"/", Handler), ])
+
         self._command_handler = CommandHandler(self._access_token, etherscan_token)
         self._event_parser = EventParser()
         self._sender = Sender(self._access_token)
@@ -40,6 +38,8 @@ class Engine:
              Handler,
              dict(data_keeper=self._data_keeper, command_handler=self._command_handler, sender=self._sender)),
         ])
+
+        self._logger.info('Engine initialized.')
 
     def _configure_logger(self):
         self._logger.setLevel(logging.INFO)

@@ -1,4 +1,5 @@
 import json
+import logging
 
 
 from Services.Singleton import Singleton
@@ -7,6 +8,8 @@ from Services.EventParser import EventParser
 
 class DataKeeper(metaclass=Singleton):
     def __init__(self):
+        self._logger = logging.getLogger('Engine.DataKeeper')
+
         self._event_parser = EventParser()
 
         self._event_A = 'Заболевших будет <= y'
@@ -28,6 +31,7 @@ class DataKeeper(metaclass=Singleton):
         self.responses = self._read_responses()
 
         self.update()
+        self._logger.info('DataKeeper initialized.')
 
     @staticmethod
     def _read_responses():
@@ -59,6 +63,7 @@ class DataKeeper(metaclass=Singleton):
             self._users[n]['bets'] = []
 
         self._commit()
+        self._logger.info('Users were reset.')
 
     def update(self):
         data = self._event_parser.update()
@@ -66,6 +71,8 @@ class DataKeeper(metaclass=Singleton):
         self._cases_all = data['total']
         self._cases_day = data['day']
         self._date = data['date']
+
+        self._logger.info('Event updated.')
 
     def is_new_user(self, message):
         chat_id = message['message']['from']['id']
@@ -112,6 +119,7 @@ class DataKeeper(metaclass=Singleton):
                             'bets': [], 'lang': 'ru'})
 
         self._commit()
+        self._logger.info(f'Add new user: {name}, {chat_id}')
 
     def add_bet(self, chat_id, category):
         for n, user in enumerate(self._users):
@@ -170,6 +178,7 @@ class DataKeeper(metaclass=Singleton):
 
     def update_rates(self, rate_A, rate_B):
         self._rate_A, self._rate_B = rate_A, rate_B
+        self._logger.info('Rates updated.')
 
     def set_lang(self, chat_id, lang):
         for n, user in enumerate(self._users):
