@@ -44,7 +44,7 @@ class Engine:
     def _configure_logger(self):
         self._logger.setLevel(logging.INFO)
 
-        fh = logging.FileHandler("log.log")
+        fh = logging.FileHandler("log.log", "w", "utf-8")
         fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self._logger.addHandler(fh)
 
