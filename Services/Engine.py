@@ -148,6 +148,7 @@ class Engine:
 
     def launch_hook(self, address):
         self._logger.info('Launching webhook...')
+        self._logger.debug(address)
 
         signal.signal(signal.SIGTERM, self._signal_term_handler)
 
