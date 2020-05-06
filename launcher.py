@@ -1,6 +1,7 @@
 import json
 import os
 from pprint import pprint
+import chardet
 
 from Services.Engine import Engine
 
@@ -21,6 +22,7 @@ print('connected: ', addr)
 
 while True:
     data = conn.recv(1024)
+    print(chardet.detect(data))
     print(data.decode(encoding='utf-8'))
     if not data:
         break
