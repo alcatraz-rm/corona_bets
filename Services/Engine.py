@@ -153,6 +153,7 @@ class Engine:
         signal.signal(signal.SIGTERM, self._signal_term_handler)
 
         try:
+            print(self._requests_url + "setWebhook?url=%s" % address)
             set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
             pprint(set_hook.json())
             self._logger.debug(set_hook.json())
