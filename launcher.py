@@ -21,7 +21,7 @@ print('connected: ', addr)
 
 while True:
     data = conn.recv(1024)
-    print(data)
+    print(repr(data))
     if not data:
         break
     conn.send(data.upper())
