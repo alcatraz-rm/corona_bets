@@ -2,9 +2,10 @@ from string import ascii_letters
 
 
 class EtherScan:
-    def __init__(self, api_token):
-        self._api_token = api_token
+    def __init__(self):
+        pass
 
+    @staticmethod
     def wallet_is_correct(self, wallet):
         if not wallet.startswith('0x'):
             return False

@@ -1,4 +1,6 @@
 import json
+import os
+from pprint import pprint
 
 from Services.Engine import Engine
 
@@ -6,7 +8,8 @@ from Services.Engine import Engine
 with open('auth.json', 'r', encoding='utf-8') as auth_file:
     data = json.load(auth_file)
 
-engine = Engine(data['access_token'], data['api_token_etherscan'])
+access_token = os.environ.get('telegram_access_token')
+engine = Engine(access_token)
 # engine.launch_hook('addr')
 engine.launch_long_polling()
 

@@ -7,14 +7,14 @@ from Services.QRGenerator import QRGenerator
 
 
 class CommandHandler:
-    def __init__(self, access_token, etherscan_token):
+    def __init__(self, access_token):
         self._info_commands = ['/start', '/help', '/howMany', '/currentRound', '/status']
         self._action_commands = ['/bet', '/setLang']
         self._admin_commands = ['/setWallet_A', '/setWallet_B', '/setFee', '/setVoteEndTime']
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
         self._sender = Sender(access_token)
-        self._ether_scan = EtherScan(etherscan_token)
+        self._ether_scan = EtherScan()
         self._qr_generator = QRGenerator()
 
     def _get_announcement(self, lang):

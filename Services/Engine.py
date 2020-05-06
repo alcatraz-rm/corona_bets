@@ -20,14 +20,14 @@ from Services.Handler import Handler
 
 
 class Engine:
-    def __init__(self, access_token, etherscan_token):
+    def __init__(self, access_token):
         self._logger = logging.getLogger('Engine')
         self._configure_logger()
 
         self._access_token = access_token
         self._requests_url = f'https://api.telegram.org/bot{access_token}/'
 
-        self._command_handler = CommandHandler(self._access_token, etherscan_token)
+        self._command_handler = CommandHandler(self._access_token)
         self._event_parser = EventParser()
         self._sender = Sender(self._access_token)
         self._data_keeper = DataKeeper()
