@@ -153,6 +153,7 @@ class Engine:
 
         try:
             set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
+            pprint(set_hook.json())
             self._logger.debug(set_hook.json())
 
             if set_hook.status_code != 200:
