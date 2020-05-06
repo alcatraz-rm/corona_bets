@@ -4,11 +4,13 @@ from pprint import pprint
 
 class Handler(tornado.web.RequestHandler):
     def initialize(self, data_keeper, command_handler, sender):
+        print('init')
         self._data_keeper = data_keeper
         self._command_handler = command_handler
         self._sender = sender
 
     async def post(self):
+        print(1)
         update = tornado.escape.json_decode(self.request.body)
         pprint(update)
 
