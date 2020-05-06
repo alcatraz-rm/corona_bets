@@ -9,7 +9,7 @@ class Handler(tornado.web.RequestHandler):
         self._command_handler = command_handler
         self._sender = sender
 
-    async def post(self):
+    def post(self):
         print(1)
         update = tornado.escape.json_decode(self.request.body)
         pprint(update)
