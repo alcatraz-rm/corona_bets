@@ -23,7 +23,7 @@ print('connected: ', addr)
 while True:
     data = conn.recv(1024)
     print(chardet.detect(data))
-    print(data.decode(encoding='utf-8'))
+    print(data.decode(encoding='Windows-1252'))
     if not data:
         break
     conn.send(data.upper())
