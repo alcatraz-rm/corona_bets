@@ -6,7 +6,7 @@ class EtherScan:
         pass
 
     @staticmethod
-    def wallet_is_correct(self, wallet):
+    def wallet_is_correct(wallet):
         if not wallet.startswith('0x'):
             return False
 
