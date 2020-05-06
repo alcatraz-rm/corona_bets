@@ -21,7 +21,7 @@ print('connected: ', addr)
 
 while True:
     data = conn.recv(1024)
-    print(repr(data))
+    print(data.decode(encoding='utf-8'))
     if not data:
         break
     conn.send(data.upper())
