@@ -15,8 +15,8 @@ class DataKeeper(metaclass=Singleton):
         self._event_A = 'Заболевших будет <= y'
         self._event_B = 'Заболевших будет > y'
 
-        self._event_A_wallet = 'here must be A wallet id'
-        self._event_B_wallet = 'here must be B wallet id'
+        self._event_A_wallet = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        self._event_B_wallet = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
         self._users = self._read_users()
 

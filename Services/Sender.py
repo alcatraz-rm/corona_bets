@@ -57,5 +57,9 @@ class Sender:
 
         self._logger.info(response.json())
 
+    def send_photo(self, chat_id, photo):
+        response = requests.post(self._requests_url + 'sendPhoto', {'chat_id': chat_id, 'photo': photo}, )
+        self._logger.info(response.json())
+
 # TODO: add Telegram answer logger
 

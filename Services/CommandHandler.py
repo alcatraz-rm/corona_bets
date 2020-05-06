@@ -3,6 +3,7 @@ import json
 from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
 from Services.EtherScan import EtherScan
+from Services.QRGenerator import QRGenerator
 
 
 class CommandHandler:
@@ -14,6 +15,7 @@ class CommandHandler:
         self._data_keeper.update()
         self._sender = Sender(access_token)
         self._ether_scan = EtherScan(etherscan_token)
+        self._qr_generator = QRGenerator()
 
     def _get_announcement(self, lang):
         return self._data_keeper.responses['4'][lang] \
@@ -115,8 +117,13 @@ class CommandHandler:
 
                 if category == 'A':
                     self._sender.send(chat_id, self._data_keeper.get_A_wallet())
+                    qr_link = self._qr_generator.generate_qr(self._data_keeper.get_A_wallet())
+                    self._sender.send_photo(chat_id, qr_link)
+
                 elif category == 'B':
                     self._sender.send(chat_id, self._data_keeper.get_B_wallet())
+                    qr_link = self._qr_generator.generate_qr(self._data_keeper.get_B_wallet())
+                    self._sender.send_photo(chat_id, qr_link)
 
                 wallet = self._data_keeper.get_wallet(chat_id)
 
