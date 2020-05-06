@@ -42,7 +42,7 @@ class Engine:
         self._logger.info('Engine initialized.')
 
     def _configure_logger(self):
-        self._logger.setLevel(logging.INFO)
+        self._logger.setLevel(logging.DEBUG)
 
         fh = logging.FileHandler("log.log", "w", "utf-8")
         fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
