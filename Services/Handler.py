@@ -37,7 +37,7 @@ class Handler(tornado.web.RequestHandler):
                     self._command_handler.handle_state(chat_id, state, update)
                 else:
                     self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
-                    
+
     def get(self):
         print('get')
 

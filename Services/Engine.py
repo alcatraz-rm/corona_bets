@@ -34,7 +34,7 @@ class Engine:
         self._data_keeper.update()
 
         self._application = tornado.web.Application([
-            (r"/",
+            (r"",
              Handler,
              dict(data_keeper=self._data_keeper, command_handler=self._command_handler, sender=self._sender)),
         ])
