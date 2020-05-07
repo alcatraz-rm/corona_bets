@@ -5,6 +5,11 @@ from Services.Sender import Sender
 from Services.EtherScan import EtherScan
 from Services.QRGenerator import QRGenerator
 
+# TODO: add method for new round configuring
+# TODO: add time limit
+# TODO: add method for result waiting (timer for check updates and requests handling in another thread)
+# TODO: add three basic for requests handling threads
+
 
 class CommandHandler:
     def __init__(self, access_token):
