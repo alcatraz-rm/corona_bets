@@ -119,7 +119,8 @@ class CommandHandler:
                 self._sender.answer_callback_query(chat_id, callback_query_id, self._data_keeper.responses['5'][lang]
                                                    .replace('{#1}', category))
 
-                message_1 = self._data_keeper.responses['6'][lang].replace('{#1}', category).replace('{#2}', category)
+                message_1 = self._data_keeper.responses['39'][lang].replace('{#1}', category)\
+                                                            .replace('{#3}', str(self._data_keeper.get_time_limit()))
 
                 self._sender.send(chat_id, message_1)
 
@@ -202,7 +203,15 @@ class CommandHandler:
 
         keyboard = [button_A, button_B]
 
-        self._sender.send_with_reply_markup(chat_id, self._get_announcement(lang), keyboard)
+        announcement = self._data_keeper.responses['38'][lang].replace('{#1}', str(self._data_keeper.get_date()))\
+                                                        .replace('{#2}', str(self._data_keeper.get_cases_day()))\
+                                                        .replace('{#3}', str(self._data_keeper.get_control_value()))\
+                                                        .replace('{#4}', str(self._data_keeper.get_control_value() + 1))\
+                                                        .replace('{#5}', str(self._data_keeper.get_rate_A()))\
+                                                        .replace('{#6}', str(self._data_keeper.get_rate_B()))\
+                                                        .replace('{#7}', str(self._data_keeper.get_time_limit()))
+
+        self._sender.send_with_reply_markup(chat_id, announcement, keyboard)
         self._data_keeper.set_state('bet_0', chat_id)
 
     def _start(self, chat_id):
