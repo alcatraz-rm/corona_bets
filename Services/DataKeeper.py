@@ -20,13 +20,16 @@ class DataKeeper(metaclass=Singleton):
 
         self._users = self._read_users()
 
-        self._rate_A = 0
-        self._rate_B = 0
+        self._rate_A = 'N/a'
+        self._rate_B = 'N/a'
         self._fee = 0.1
 
         self._cases_all = None
         self._cases_day = None
         self._date = None
+
+        self._control_value = 123
+        self._time_limit = 'time limit here'
 
         self.responses = self._read_responses()
 
@@ -37,6 +40,12 @@ class DataKeeper(metaclass=Singleton):
     def _read_responses():
         with open("responses.json", 'r', encoding='utf-8') as responses_file:
             return json.load(responses_file)
+
+    def get_time_limit(self):
+        return self._time_limit
+
+    def get_control_value(self):
+        return self._control_value
 
     def get_lang(self, chat_id):
         for user in self._users:
@@ -54,6 +63,16 @@ class DataKeeper(metaclass=Singleton):
         for user in self._users:
             if user['category'] == category:
                 result.append(user)
+
+        return result
+
+    def count_bets(self, category):
+        result = 0
+
+        for user in self._users:
+            for bet in user['bets']:
+                if bet['category'] == category:
+                    result += 1
 
         return result
 

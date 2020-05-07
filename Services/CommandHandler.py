@@ -23,12 +23,20 @@ class CommandHandler:
             .replace('{#2}', str(self._data_keeper.get_cases_day()))
 
     def _update(self):
-        users_A = self._data_keeper.get_users('A')
-        users_B = self._data_keeper.get_users('B')
+        bets_A = self._data_keeper.count_bets('A')
+        bets_B = self._data_keeper.count_bets('B')
+
         fee = self._data_keeper.get_fee()
 
-        rate_A = ((len(users_A) + len(users_B)) / len(users_A)) * (1 - fee)
-        rate_B = ((len(users_A) + len(users_B)) / len(users_B)) * (1 - fee)
+        if bets_A:
+            rate_A = ((bets_A + bets_B) / bets_A) * (1 - fee)
+        else:
+            rate_A = 'N/a'
+
+        if bets_B:
+            rate_B = ((bets_A + bets_B) / bets_B) * (1 - fee)
+        else:
+            rate_B = 'N/a'
 
         self._data_keeper.update_rates(rate_A, rate_B)
 
@@ -155,6 +163,7 @@ class CommandHandler:
                 self._data_keeper.set_state(None, chat_id)
 
                 # TODO: check payment and verify (or not) user's vote
+                self._update()
 
             else:
                 self._sender.answer_callback_query(chat_id, callback_query_id, '')
@@ -180,6 +189,7 @@ class CommandHandler:
             self._sender.send_reply_keyboard(chat_id, success_message)
 
             # TODO: check payment and verify (or not) user's vote
+            self._update()
 
     def _bet(self, command_object):
         chat_id = command_object['message']['from']['id']
@@ -196,18 +206,16 @@ class CommandHandler:
         self._data_keeper.set_state('bet_0', chat_id)
 
     def _start(self, chat_id):
-        # TODO: write start message
         lang = self._data_keeper.get_lang(chat_id)
 
-        self._sender.send_reply_keyboard(chat_id, self._data_keeper.responses['13'][lang])
+        self._sender.send_reply_keyboard(chat_id, self._data_keeper.responses['34'][lang])
 
     def _help(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
 
-        self._sender.send(chat_id, f'{self._data_keeper.responses["14"][lang]}: /how_many\n'
-                                   f'{self._data_keeper.responses["15"][lang]}: /current_round\n\n'
-                                   f'{self._data_keeper.responses["32"][lang]}: /bet\n'
-                                   f'{self._data_keeper.responses["33"][lang]}: /status\n')
+        message = self._data_keeper.responses['36'][lang]
+
+        self._sender.send(chat_id, message)
 
     def _howmany(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
@@ -216,19 +224,25 @@ class CommandHandler:
         cases_day, cases_all = self._data_keeper.get_cases_day(), self._data_keeper.get_cases_all()
         date = self._data_keeper.get_date()
 
-        message = f'\n{self._data_keeper.responses["16"][lang]}: {cases_day}\n' \
-                  f'{self._data_keeper.responses["17"][lang]}: {cases_all}\n' \
-                  f'{self._data_keeper.responses["18"][lang]}: {date.isoformat(sep=" ")}'
+        message = self._data_keeper.responses['35'][lang].replace('{#1}', str(cases_day))\
+                                                         .replace('{#2}', str(cases_all)).replace('{#3}', str(date))
 
         self._sender.send(chat_id, message)
 
     def _current_round(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
+        control_value = self._data_keeper.get_control_value()
 
-        message = f"A: {self._data_keeper.responses['2'][lang]} <= y\n" \
-                  f"B: {self._data_keeper.responses['2'][lang]} >= (y+1)\n\n" \
-                  f"{self._data_keeper.responses['19'][lang]} A: {self._data_keeper.get_rate_A()}\n" \
-                  f"{self._data_keeper.responses['19'][lang]} B: {self._data_keeper.get_rate_B()}"
+        message = self._data_keeper.responses['37'][lang].replace('{#1}', str(control_value))\
+                                                         .replace('{#2}', str(control_value + 1))\
+                                                         .replace('{#3}', str(self._data_keeper.get_rate_A()))\
+                                                         .replace('{#4}', str(self._data_keeper.get_rate_B()))\
+                                                         .replace('{#5}', self._data_keeper.get_time_limit())
+
+        # message = f"A: {self._data_keeper.responses['2'][lang]} <= y\n" \
+        #           f"B: {self._data_keeper.responses['2'][lang]} >= (y+1)\n\n" \
+        #           f"{self._data_keeper.responses['19'][lang]} A: {self._data_keeper.get_rate_A()}\n" \
+        #           f"{self._data_keeper.responses['19'][lang]} B: {self._data_keeper.get_rate_B()}"
 
         self._sender.send(chat_id, message)
 
