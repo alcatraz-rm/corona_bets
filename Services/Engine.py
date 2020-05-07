@@ -150,11 +150,15 @@ class Engine:
         self._logger.info('Launching webhook...')
         self._logger.debug(address)
 
+        with open('/etc/letsencrypt/live/vm1139999.hl.had.pm/fullchain.pem', 'r', encoding='utf-8') as cert:
+            cert_data = cert.read()
+
         signal.signal(signal.SIGTERM, self._signal_term_handler)
 
         try:
             print(self._requests_url + "setWebhook?url=%s" % address)
-            set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
+            set_hook = requests.get(self._requests_url + "setWebhook", params={'url': address, 'certificate': cert_data})
+            # set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
             pprint(set_hook.json())
             self._logger.debug(set_hook.json())
 
