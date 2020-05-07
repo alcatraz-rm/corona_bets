@@ -204,8 +204,8 @@ class CommandHandler:
     def _help(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
 
-        self._sender.send(chat_id, f'{self._data_keeper.responses["14"][lang]}: /howMany\n'
-                                   f'{self._data_keeper.responses["15"][lang]}: /currentRound\n\n'
+        self._sender.send(chat_id, f'{self._data_keeper.responses["14"][lang]}: /how_many\n'
+                                   f'{self._data_keeper.responses["15"][lang]}: /current_round\n\n'
                                    f'{self._data_keeper.responses["32"][lang]}: /bet\n'
                                    f'{self._data_keeper.responses["33"][lang]}: /status\n')
 

@@ -11,8 +11,8 @@ class Sender:
         self._access_token = access_token
         self._requests_url = f'https://api.telegram.org/bot{access_token}/'
 
-        self._reply_keyboard = {'keyboard': [[{'text': '/howMany'}, {'text': '/bet'}],
-                                             [{'text': '/currentRound'}, {'text': '/status'}],
+        self._reply_keyboard = {'keyboard': [[{'text': '/how_many'}, {'text': '/bet'}],
+                                             [{'text': '/current_round'}, {'text': '/status'}],
                                              [{'text': '/help'}]],
                                 'resize_keyboard': True}
 
