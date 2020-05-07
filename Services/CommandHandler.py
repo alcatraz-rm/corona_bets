@@ -38,6 +38,7 @@ class CommandHandler:
         else:
             rate_B = 'N/a'
 
+        print(rate_A, rate_B)
         self._data_keeper.update_rates(rate_A, rate_B)
 
     def handle_text_message(self, message_object):
