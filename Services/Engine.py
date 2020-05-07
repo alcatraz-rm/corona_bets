@@ -157,7 +157,9 @@ class Engine:
 
         try:
             print(self._requests_url + "setWebhook?url=%s" % address)
-            set_hook = requests.get(self._requests_url + "setWebhook", params={'url': address})
+            cert_file = '@/etc/letsencrypt/live/vm1139999.hl.had.pm/fullchain.pem'
+
+            set_hook = requests.get(self._requests_url + "setWebhook", params={'url': address, 'certificate': cert_file})
             # set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
             pprint(set_hook.json())
             self._logger.debug(set_hook.json())
