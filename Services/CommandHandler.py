@@ -8,9 +8,9 @@ from Services.QRGenerator import QRGenerator
 
 class CommandHandler:
     def __init__(self, access_token):
-        self._info_commands = ['/start', '/help', '/howMany', '/currentRound', '/status']
+        self._info_commands = ['/start', '/help', '/how_many', '/current_round', '/status']
         self._action_commands = ['/bet', '/setLang']
-        self._admin_commands = ['/setWallet_A', '/setWallet_B', '/setFee', '/setVoteEndTime']
+        self._admin_commands = ['/set_wallet_a', '/set_wallet_b', '/set_fee', '/set_vote_end_time']
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
         self._sender = Sender(access_token)
@@ -70,11 +70,11 @@ class CommandHandler:
                 self._help(chat_id)
                 return
 
-            elif command[0] == '/howMany':
+            elif command[0] == '/how_many':
                 self._howmany(chat_id)
                 return
 
-            elif command[0] == '/currentRound':
+            elif command[0] == '/current_round':
                 self._current_round(chat_id)
                 return
 
@@ -87,7 +87,7 @@ class CommandHandler:
                 self._bet(command_object)
                 return
 
-            elif command[0] == '/setLang':
+            elif command[0] == '/set_lang':
                 self._set_lang(chat_id, command_object)
                 return
 
