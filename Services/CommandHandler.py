@@ -130,15 +130,37 @@ class CommandHandler:
                 self._sender.send(chat_id, message_1)
 
                 if category == 'A':
-                    self._sender.send(chat_id, self._data_keeper.get_A_wallet())
+                    self._sender.send_back_next_keyboard(chat_id, self._data_keeper.get_A_wallet())
                     qr_link = self._qr_generator.generate_qr(self._data_keeper.get_A_wallet())
                     self._sender.send_photo(chat_id, qr_link)
 
                 elif category == 'B':
-                    self._sender.send(chat_id, self._data_keeper.get_B_wallet())
+                    self._sender.send_back_next_keyboard(chat_id, self._data_keeper.get_B_wallet())
                     qr_link = self._qr_generator.generate_qr(self._data_keeper.get_B_wallet())
                     self._sender.send_photo(chat_id, qr_link)
 
+                self._data_keeper.set_state('bet_3', chat_id)
+
+                # wallet = self._data_keeper.get_wallet(chat_id)
+                #
+                # if not wallet:
+                #     message_2 = self._data_keeper.responses['7'][lang]
+                #
+                #     self._sender.send(chat_id, message_2, reply_keyboard_hide=True)
+                #
+                #     self._data_keeper.set_state('bet_2', chat_id)
+                # else:
+                #     message_2 = self._data_keeper.responses['20'][lang].replace('{#1}', wallet)
+                #
+                #     button_A = [{'text': self._data_keeper.responses['8'][lang], 'callback_data': 1}]
+                #     button_B = [{'text': self._data_keeper.responses['9'][lang], 'callback_data': 0}]
+                #
+                #     keyboard = [button_A, button_B]
+                #
+                #     self._sender.send_with_reply_markup(chat_id, message_2, keyboard)
+                #     self._data_keeper.set_state('bet_1', chat_id)
+        elif state == 'bet_3':
+            if message['message']['text'] == 'Далее':
                 wallet = self._data_keeper.get_wallet(chat_id)
 
                 if not wallet:
@@ -157,6 +179,11 @@ class CommandHandler:
 
                     self._sender.send_with_reply_markup(chat_id, message_2, keyboard)
                     self._data_keeper.set_state('bet_1', chat_id)
+            elif message['message']['text'] == 'Назад':
+                self._data_keeper.remove_last_bet(chat_id)
+                self._bet(message)
+            else:
+                self._sender.send(chat_id, 'Пожалуйста, завершите ставку, нажав "Далее", либо нажмите "Назад"')
 
         elif state == 'bet_1':
             use_previous_wallet = int(message['callback_query']['data'])
@@ -252,11 +279,6 @@ class CommandHandler:
                                                          .replace('{#3}', str(self._data_keeper.get_rate_A()))\
                                                          .replace('{#4}', str(self._data_keeper.get_rate_B()))\
                                                          .replace('{#5}', self._data_keeper.get_time_limit())
-
-        # message = f"A: {self._data_keeper.responses['2'][lang]} <= y\n" \
-        #           f"B: {self._data_keeper.responses['2'][lang]} >= (y+1)\n\n" \
-        #           f"{self._data_keeper.responses['19'][lang]} A: {self._data_keeper.get_rate_A()}\n" \
-        #           f"{self._data_keeper.responses['19'][lang]} B: {self._data_keeper.get_rate_B()}"
 
         self._sender.send(chat_id, message)
 

@@ -18,6 +18,9 @@ class Sender:
 
         self._reply_keyboard_hide = {'hide_keyboard': True}
 
+        self._back_next_keyboard = {'keyboard': [[{'text': 'Назад'}, {'text': 'Далее'}]],
+                                         'resize_keyboard': True}
+
         self._logger.info('Sender initialized.')
 
     def send_reply_keyboard(self, chat_id, text):
@@ -39,6 +42,13 @@ class Sender:
                                      {'chat_id': chat_id, 'text': text})
 
         self._logger.info(response.json())
+
+    def send_back_next_keyboard(self, chat_id, text):
+        reply_markup = json.dumps(self._back_next_keyboard)
+
+        response = requests.post(self._requests_url + 'sendMessage',
+                                 {'chat_id': chat_id, 'text': text,
+                                  'reply_markup': reply_markup})
 
     def send_with_reply_markup(self, chat_id, text, reply_markup):
         reply_markup = json.dumps({'inline_keyboard': reply_markup})
