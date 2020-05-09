@@ -134,7 +134,8 @@ class CommandHandler:
                 self._sender.answer_callback_query(chat_id, callback_query_id, self._data_keeper.responses['5'][lang]
                                                    .replace('{#1}', category))
 
-                message_1 = self._data_keeper.responses['39'][lang].replace('{#1}', category) \
+                message_1 = self._data_keeper.responses['39'][lang].replace('{#1}', category)\
+                    .replace('{#2}', str(self._data_keeper.get_bet_amount())) \
                     .replace('{#3}', str(self._data_keeper.get_time_limit()))
 
                 self._sender.send(chat_id, message_1)

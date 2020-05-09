@@ -247,6 +247,15 @@ class Engine:
             control_value = int(input('enter the control value: '))
             self._data_keeper.set_control_value(control_value)
 
+        bet_amount = self._data_keeper.get_bet_amount()
+        answer = input(f'Use {bet_amount} as bet amount? (y/n)')
+
+        if answer == 'y':
+            self._data_keeper.set_bet_amount(bet_amount)
+        else:
+            bet_amount = int(input('enter the bet amount: '))
+            self._data_keeper.set_bet_amount(bet_amount)
+
         fee = int(input('enter the fee: '))
         self._data_keeper.set_fee(fee)
 
