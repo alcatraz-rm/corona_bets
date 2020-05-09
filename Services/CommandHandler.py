@@ -141,24 +141,6 @@ class CommandHandler:
 
                 self._data_keeper.set_state('bet_3', chat_id)
 
-                # wallet = self._data_keeper.get_wallet(chat_id)
-                #
-                # if not wallet:
-                #     message_2 = self._data_keeper.responses['7'][lang]
-                #
-                #     self._sender.send(chat_id, message_2, reply_keyboard_hide=True)
-                #
-                #     self._data_keeper.set_state('bet_2', chat_id)
-                # else:
-                #     message_2 = self._data_keeper.responses['20'][lang].replace('{#1}', wallet)
-                #
-                #     button_A = [{'text': self._data_keeper.responses['8'][lang], 'callback_data': 1}]
-                #     button_B = [{'text': self._data_keeper.responses['9'][lang], 'callback_data': 0}]
-                #
-                #     keyboard = [button_A, button_B]
-                #
-                #     self._sender.send_with_reply_markup(chat_id, message_2, keyboard)
-                #     self._data_keeper.set_state('bet_1', chat_id)
         elif state == 'bet_3':
             if message['message']['text'] == 'Далее':
                 wallet = self._data_keeper.get_wallet(chat_id)
@@ -235,7 +217,8 @@ class CommandHandler:
 
         keyboard = [button_A, button_B]
 
-        announcement = self._data_keeper.responses['38'][lang].replace('{#1}', str(self._data_keeper.get_date()))\
+        announcement = self._data_keeper.responses['38'][lang]\
+                                                        .replace('{#1}', str(self._data_keeper.get_date()))\
                                                         .replace('{#2}', str(self._data_keeper.get_cases_day()))\
                                                         .replace('{#3}', str(self._data_keeper.get_control_value()))\
                                                         .replace('{#4}', str(self._data_keeper.get_control_value() + 1))\
@@ -256,7 +239,7 @@ class CommandHandler:
 
         message = self._data_keeper.responses['36'][lang]
 
-        self._sender.send(chat_id, message)
+        self._sender.send_reply_keyboard(chat_id, message)
 
     def _howmany(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
@@ -268,7 +251,7 @@ class CommandHandler:
         message = self._data_keeper.responses['35'][lang].replace('{#1}', str(cases_day))\
                                                          .replace('{#2}', str(cases_all)).replace('{#3}', str(date))
 
-        self._sender.send(chat_id, message)
+        self._sender.send_reply_keyboard(chat_id, message)
 
     def _current_round(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
@@ -280,7 +263,7 @@ class CommandHandler:
                                                          .replace('{#4}', str(self._data_keeper.get_rate_B()))\
                                                          .replace('{#5}', self._data_keeper.get_time_limit())
 
-        self._sender.send(chat_id, message)
+        self._sender.send_reply_keyboard(chat_id, message)
 
     def _set_lang(self, chat_id, message):
         lang = message['message']['text'].split()[1]
@@ -312,6 +295,6 @@ class CommandHandler:
                            f'\n    {self._data_keeper.responses["27"][lang]}: {bet["wallet"]}' \
                            f'\n    {self._data_keeper.responses["28"][lang]}: {status}\n\n'
 
-            self._sender.send(chat_id, message)
+            self._sender.send_reply_keyboard_short(chat_id, message)
         else:
             self._sender.send(chat_id, self._data_keeper.responses["31"][lang])

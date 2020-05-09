@@ -21,10 +21,22 @@ class Sender:
         self._back_next_keyboard = {'keyboard': [[{'text': 'Назад'}, {'text': 'Далее'}]],
                                          'resize_keyboard': True}
 
+        self._reply_keyboard_short = {'keyboard': [[{'text': '/bet'}, {'text': '/help'}]],
+                                      'resize_keyboard': True}
+
         self._logger.info('Sender initialized.')
 
     def send_reply_keyboard(self, chat_id, text):
         reply_markup = json.dumps(self._reply_keyboard)
+
+        response = requests.post(self._requests_url + 'sendMessage',
+                                 {'chat_id': chat_id, 'text': text,
+                                  'reply_markup': reply_markup})
+
+        self._logger.info(response.json())
+
+    def send_reply_keyboard_short(self, chat_id, text):
+        reply_markup = json.dumps(self._reply_keyboard_short)
 
         response = requests.post(self._requests_url + 'sendMessage',
                                  {'chat_id': chat_id, 'text': text,
