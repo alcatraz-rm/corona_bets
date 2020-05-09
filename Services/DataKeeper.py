@@ -51,6 +51,7 @@ class DataKeeper(metaclass=Singleton):
         for n in range(len(self._users)):
             if self._users[n]['chat_id']:
                 del(self._users[n]['bets'][-1])
+        self._commit()
 
     def get_lang(self, chat_id):
         for user in self._users:
