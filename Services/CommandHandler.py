@@ -169,7 +169,16 @@ class CommandHandler:
                                       'resize_keyboard': True}))
 
             else:
-                self._sender.send(chat_id, 'Пожалуйста, закончите ставку или нажмите "Отменить".')
+                self._data_keeper.set_state(None, chat_id)
+                self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
+                                           'но могу действовать в соответствии со своими командами',
+                                  reply_markup=json.dumps({'keyboard':
+                                      [
+                                          [{'text': '/how_many'}, {'text': '/bet'}],
+                                          [{'text': '/current_round'}, {'text': '/status'}],
+                                          [{'text': '/help'}]
+                                      ],
+                                      'resize_keyboard': True}))
                 return
 
         elif state == 'bet_3':
@@ -208,18 +217,10 @@ class CommandHandler:
                                       ],
                                       'resize_keyboard': True}))
             else:
-                self._sender.send(chat_id, 'Пожалуйста, закончите ставку.')
-                return
-
-        elif state == 'bet_1':
-            use_previous_wallet = int(message['callback_query']['data'])
-            callback_query_id = message['callback_query']['id']
-
-            if use_previous_wallet:
-                self._data_keeper.add_wallet_to_last_bet(chat_id, self._data_keeper.get_wallet(chat_id))
-                self._sender.answer_callback_query(chat_id, callback_query_id, None)
-
-                self._sender.send(chat_id, self._data_keeper.responses['10'][lang],
+                self._data_keeper.set_state(None, chat_id)
+                self._data_keeper.remove_last_bet(chat_id)
+                self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
+                                           'но могу действовать в соответствии со своими командами',
                                   reply_markup=json.dumps({'keyboard':
                                       [
                                           [{'text': '/how_many'}, {'text': '/bet'}],
@@ -227,20 +228,52 @@ class CommandHandler:
                                           [{'text': '/help'}]
                                       ],
                                       'resize_keyboard': True}))
+                return
 
-                self._data_keeper.set_state(None, chat_id)
+        elif state == 'bet_1':
+            if 'callback_query' in message:
+                use_previous_wallet = int(message['callback_query']['data'])
+                callback_query_id = message['callback_query']['id']
 
-                # TODO: check payment and verify (or not) user's vote
-                self._update()
+                if use_previous_wallet:
+                    self._data_keeper.add_wallet_to_last_bet(chat_id, self._data_keeper.get_wallet(chat_id))
+                    self._sender.answer_callback_query(chat_id, callback_query_id, None)
 
+                    self._sender.send(chat_id, self._data_keeper.responses['10'][lang],
+                                      reply_markup=json.dumps({'keyboard':
+                                          [
+                                              [{'text': '/how_many'}, {'text': '/bet'}],
+                                              [{'text': '/current_round'}, {'text': '/status'}],
+                                              [{'text': '/help'}]
+                                          ],
+                                          'resize_keyboard': True}))
+
+                    self._data_keeper.set_state(None, chat_id)
+
+                    # TODO: check payment and verify (or not) user's vote
+                    self._update()
+
+                else:
+                    self._sender.answer_callback_query(chat_id, callback_query_id, '')
+                    self._data_keeper.set_state('bet_2', chat_id)
+
+                    message = self._data_keeper.responses['11'][lang]
+                    self._sender.send(chat_id, message,
+                                      reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
+                                                               'resize_keyboard': True}))
             else:
-                self._sender.answer_callback_query(chat_id, callback_query_id, '')
-                self._data_keeper.set_state('bet_2', chat_id)
-
-                message = self._data_keeper.responses['11'][lang]
-                self._sender.send(chat_id, message,
-                                  reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
-                                                           'resize_keyboard': True}))
+                self._data_keeper.remove_last_bet(chat_id)
+                self._data_keeper.set_state(None, chat_id)
+                self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
+                                           'но могу действовать в соответствии со своими командами',
+                                  reply_markup=json.dumps({'keyboard':
+                                      [
+                                          [{'text': '/how_many'}, {'text': '/bet'}],
+                                          [{'text': '/current_round'}, {'text': '/status'}],
+                                          [{'text': '/help'}]
+                                      ],
+                                      'resize_keyboard': True}))
+                return
 
         elif state == 'bet_2':
             wallet = message['message']['text']
@@ -307,7 +340,7 @@ class CommandHandler:
                                                                             'resize_keyboard': True}))
 
         self._sender.send(chat_id, 'Для отмены нажмите "Отменить".',
-                          reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}, {'text': 'Далее'}]],
+                          reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
                                                    'resize_keyboard': True}))
         self._data_keeper.set_state('bet_0', chat_id)
 
