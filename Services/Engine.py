@@ -7,6 +7,10 @@ import json
 import signal
 import tornado.web, tornado.escape, tornado.ioloop
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
+
 # import logging
 from pprint import pprint
 
@@ -38,6 +42,9 @@ class Engine:
              Handler,
              dict(data_keeper=self._data_keeper, command_handler=self._command_handler, sender=self._sender)),
         ])
+
+        self._updates_queue = Queue()
+        self._lock = threading.Lock()
 
         self._logger.info('Engine initialized.')
 
@@ -145,6 +152,68 @@ class Engine:
         except KeyboardInterrupt:
             self._logger.info('Keyboard interrupt occurred. Quit.')
             exit(0)
+
+    def launch_long_polling_threads(self):
+        self._logger.info('Launching long polling with 2 threads...')
+
+        try:
+            listening_thread = threading.Thread(target=self._listen, daemon=True)
+            handling_thread = threading.Thread(target=self._handle, daemon=True)
+            # with ThreadPoolExecutor(max_workers=2) as executor:
+            #     executor.submit(self._listen)
+            #     executor.submit(self._handle)
+            listening_thread.start()
+            handling_thread.start()
+
+            listening_thread.join()
+            handling_thread.join()
+        except KeyboardInterrupt:
+            print('Keyboard interrupt. Quit.')
+
+    def _listen(self):
+        new_offset = None
+
+        while True:
+            updates = self._get_updates(new_offset)
+
+            for update in updates:
+                print('write new update to queue')
+                last_update_id = update['update_id']
+
+                with self._lock:
+                    self._updates_queue.put(update)
+
+                new_offset = last_update_id + 1
+
+    def _handle(self):
+        while True:
+            update = None
+            with self._lock:
+                if not self._updates_queue.empty():
+                    update = self._updates_queue.get()
+
+            if update:
+                print('start handling new update')
+
+                if 'message' in update:
+                    if self._data_keeper.is_new_user(update):
+                        self._data_keeper.add_user(update)
+
+                    if update['message']['text'].startswith('/'):
+                        self._command_handler.handle_command(update)
+                    else:
+                        self._command_handler.handle_text_message(update)
+
+                elif 'callback_query' in update:
+                    chat_id = update['callback_query']['from']['id']
+                    state = self._data_keeper.get_state(chat_id)
+
+                    if state:
+                        self._command_handler.handle_state(chat_id, state, update)
+                    else:
+                        self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
+
+                print('end handling new update')
 
     def launch_hook(self, address):
         self._logger.info('Launching webhook...')
