@@ -44,6 +44,9 @@ class DataKeeper(metaclass=Singleton):
     def get_time_limit(self):
         return self._time_limit
 
+    def set_time_limit(self, new_time_limit):
+        self._time_limit = new_time_limit
+
     def get_control_value(self):
         return self._control_value
 
@@ -173,6 +176,9 @@ class DataKeeper(metaclass=Singleton):
 
     def get_cases_day(self):
         return self._cases_day
+
+    def set_control_value(self, control_value):
+        self._control_value = control_value
 
     def get_cases_all(self):
         return self._cases_all

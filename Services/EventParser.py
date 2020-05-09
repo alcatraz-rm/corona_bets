@@ -20,6 +20,11 @@ class EventParser:
                 'total': int(soup.select(self._all_selector)[0].text.replace(' ', '')),
                 'date': self._parse_date(soup.select(self._date_selector)[0].text)}
 
+    def event_check(self, control_value):
+        data = self.update()
+
+        return data['day'] != control_value
+
     @staticmethod
     def _parse_date(date):
         year = 2020

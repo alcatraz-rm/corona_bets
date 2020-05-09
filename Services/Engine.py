@@ -5,16 +5,14 @@ import os
 import platform
 import json
 import signal
+import time
 import tornado.web, tornado.escape, tornado.ioloop
 
 import threading
-from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
-# import logging
 from pprint import pprint
 
-# from RequestHandler import Handler
 from Services.CommandHandler import CommandHandler
 from Services.EventParser import EventParser
 from Services.DataKeeper import DataKeeper
@@ -169,6 +167,33 @@ class Engine:
             handling_thread.join()
         except KeyboardInterrupt:
             print('Keyboard interrupt. Quit.')
+
+    def _time_limit_exceeded(self):
+        time = datetime.now()
+
+        return time >= self._data_keeper.get_time_limit()
+
+    def _start_bot(self, listen_thread, handle_thread):
+        listen_thread.start()
+        handle_thread.start()
+
+    def process(self):
+        # create threads here and give it into start_bot
+
+        while not self._time_limit_exceeded():
+            time.sleep(180)
+
+        # kill threads here, broadcast message about time limit
+        # start new threads for handling messages, but bets is NOT ALLOWED
+
+        # wait results, when event happened - broadcast message with results and send money
+        # configure for new round, broadcast message about new round and go to next iteration
+
+    def _configure_new_round(self, control_value):
+        self._data_keeper.reset_users()
+
+        self._data_keeper.update_control_value(control_value)
+        self._data_keeper.set_time_limit('new time limit')
 
     def _listen(self):
         new_offset = None
