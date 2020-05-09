@@ -11,63 +11,20 @@ class Sender:
         self._access_token = access_token
         self._requests_url = f'https://api.telegram.org/bot{access_token}/'
 
-        self._reply_keyboard = {'keyboard': [[{'text': '/how_many'}, {'text': '/bet'}],
-                                             [{'text': '/current_round'}, {'text': '/status'}],
-                                             [{'text': '/help'}]],
-                                'resize_keyboard': True}
-
-        self._reply_keyboard_hide = {'hide_keyboard': True}
-
-        self._back_next_keyboard = {'keyboard': [[{'text': 'Отменить'}, {'text': 'Далее'}]],
-                                    'resize_keyboard': True}
-
-        self._reply_keyboard_short = {'keyboard': [[{'text': '/bet'}, {'text': '/help'}]],
-                                      'resize_keyboard': True}
-
         self._logger.info('Sender initialized.')
 
-    # def send_reply_keyboard(self, chat_id, text):
-    #     reply_markup = json.dumps(self._reply_keyboard)
-    #
-    #     response = requests.post(self._requests_url + 'sendMessage',
-    #                              {'chat_id': chat_id, 'text': text,
-    #                               'reply_markup': reply_markup})
-    #
-    #     self._logger.info(response.json())
-    #
-    # def send_reply_keyboard_short(self, chat_id, text):
-    #     reply_markup = json.dumps(self._reply_keyboard_short)
-    #
-    #     response = requests.post(self._requests_url + 'sendMessage',
-    #                              {'chat_id': chat_id, 'text': text,
-    #                               'reply_markup': reply_markup})
-    #
-    #     self._logger.info(response.json())
-    #
-    # def send(self, chat_id, text, reply_keyboard_hide=False):
-    #     if reply_keyboard_hide:
-    #         response = requests.post(self._requests_url + 'sendMessage',
-    #                                  {'chat_id': chat_id, 'text': text,
-    #                                   'reply_markup': json.dumps(self._reply_keyboard_hide)})
-    #     else:
-    #         response = requests.post(self._requests_url + 'sendMessage',
-    #                                  {'chat_id': chat_id, 'text': text})
-    #
-    #     self._logger.info(response.json())
-    #
-    # def send_back_next_keyboard(self, chat_id, text):
-    #     reply_markup = json.dumps(self._back_next_keyboard)
-    #
-    #     response = requests.post(self._requests_url + 'sendMessage',
-    #                              {'chat_id': chat_id, 'text': text,
-    #                               'reply_markup': reply_markup})
-    #
-    # def send_with_reply_markup(self, chat_id, text, reply_markup):
-    #     reply_markup = json.dumps({'inline_keyboard': reply_markup})
-    #     response = requests.post(self._requests_url + 'sendMessage',
-    #                              {'chat_id': chat_id, 'text': text,
-    #                               'reply_markup': reply_markup})
-    #     self._logger.info(response.json())
+    def _log_telegram_response(self, response):
+        result = {'ok': response['ok']}
+
+        if 'username' in response['result']['chat']:
+            result['to'] = {'chat_id': response['result']['chat']['id'],
+                            'username': response['result']['chat']['username'],
+                            'text': response['result']['text'], 'message_id': response['result']['message_id']}
+        else:
+            result['to'] = {'chat_id': response['result']['chat']['id'],
+                            'text': response['result']['text'], 'message_id': response['result']['message_id']}
+
+        self._logger.info(f'Sent: {json.dumps(result, indent=4, ensure_ascii=False)}')
 
     def answer_callback_query(self, chat_id, callback_query_id, text):
         if text:
@@ -77,22 +34,24 @@ class Sender:
             response = requests.post(self._requests_url + 'answerCallbackQuery',
                                      {'chat_id': chat_id, 'callback_query_id': callback_query_id})
 
+        self._logger.info(f'Answer callback query: {response.json()}')
+
         self._logger.info(response.json())
 
     def send_photo(self, chat_id, photo):
         response = requests.post(self._requests_url + 'sendPhoto', {'chat_id': chat_id, 'photo': photo}, )
         self._logger.info(response.json())
 
-    def send(self, chat_id, text, reply_markup=None):
+    def send(self, chat_id, text, reply_markup=None, parse_mode='HTML'):
         if reply_markup:
             response = requests.post(self._requests_url + 'sendMessage',
                                      params={'chat_id': chat_id, 'text': text,
-                                             'reply_markup': reply_markup})
+                                             'reply_markup': reply_markup, 'parse_mode': parse_mode}).json()
         else:
             response = requests.post(self._requests_url + 'sendMessage',
-                                     params={'chat_id': chat_id, 'text': text})
+                                     params={'chat_id': chat_id, 'text': text, 'parse_mode': parse_mode}).json()
 
-        self._logger.info(response.json())
+        self._log_telegram_response(response)
 
 
 # TODO: add Telegram answer logger

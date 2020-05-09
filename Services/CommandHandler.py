@@ -434,10 +434,10 @@ class CommandHandler:
                 else:
                     status = self._data_keeper.responses["30"][lang]
 
-                message += f'{self._data_keeper.responses["25"][lang]} {n + 1}:' \
-                           f'\n    {self._data_keeper.responses["26"][lang]}: {bet["category"]}' \
-                           f'\n    {self._data_keeper.responses["27"][lang]}: {bet["wallet"]}' \
-                           f'\n    {self._data_keeper.responses["28"][lang]}: {status}\n\n'
+                message += f'{self._data_keeper.responses["25"][lang]} <b>{n + 1}</b>:' \
+                           f'\n{self._data_keeper.responses["26"][lang]}: {bet["category"]}' \
+                           f'\n{self._data_keeper.responses["27"][lang]}: {bet["wallet"]}' \
+                           f'\n{self._data_keeper.responses["28"][lang]}: {status}\n\n'
 
             self._sender.send(chat_id, message,
                               reply_markup=json.dumps({'keyboard': [[{'text': '/bet'}, {'text': '/help'}]],
