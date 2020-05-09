@@ -74,6 +74,12 @@ class CommandHandler:
             self._sender.send(chat_id, message)
             return
 
+        state = self._data_keeper.get_state(chat_id)
+
+        if state:
+            self._sender.send(chat_id, 'Пожалуйста, закончите ставку.')
+            return
+
         if command[0] in self._info_commands:
             if command[0] == '/start':
                 self._start(chat_id)
@@ -173,7 +179,8 @@ class CommandHandler:
 
             if use_previous_wallet:
                 self._data_keeper.add_wallet_to_last_bet(chat_id, self._data_keeper.get_wallet(chat_id))
-                self._sender.answer_callback_query(chat_id, callback_query_id, self._data_keeper.responses['10'][lang])
+                self._sender.answer_callback_query(chat_id, callback_query_id, None)
+                self._sender.send_reply_keyboard(chat_id, self._data_keeper.responses['10'][lang])
 
                 self._data_keeper.set_state(None, chat_id)
 
