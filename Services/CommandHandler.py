@@ -5,6 +5,7 @@ from Services.Sender import Sender
 from Services.EtherScan import EtherScan
 from Services.QRGenerator import QRGenerator
 
+
 # TODO: add method for new round configuring
 # TODO: add time limit
 # TODO: add method for result waiting (timer for check updates and requests handling in another thread)
@@ -63,7 +64,7 @@ class CommandHandler:
 
         self._sender.send(chat_id, self._data_keeper.responses['1'][lang])
 
-    def handle_command(self, command_object):
+    def handle_command(self, command_object, allow_bets):
         chat_id = command_object['message']['from']['id']
         command = command_object['message']['text'].split()
 
@@ -103,8 +104,11 @@ class CommandHandler:
 
         if command[0] in self._action_commands:
             if command[0] == '/bet':
-                self._bet(command_object)
-                return
+                if allow_bets:
+                    self._bet(command_object)
+                    return
+                else:
+                    self._sender.send(chat_id, 'Извините, время для участия в текущей игре вышло.')
 
             elif command[0] == '/set_lang':
                 self._set_lang(chat_id, command_object)
@@ -130,22 +134,43 @@ class CommandHandler:
                 self._sender.answer_callback_query(chat_id, callback_query_id, self._data_keeper.responses['5'][lang]
                                                    .replace('{#1}', category))
 
-                message_1 = self._data_keeper.responses['39'][lang].replace('{#1}', category)\
-                                                            .replace('{#3}', str(self._data_keeper.get_time_limit()))
+                message_1 = self._data_keeper.responses['39'][lang].replace('{#1}', category) \
+                    .replace('{#3}', str(self._data_keeper.get_time_limit()))
 
                 self._sender.send(chat_id, message_1)
 
                 if category == 'A':
-                    self._sender.send_back_next_keyboard(chat_id, self._data_keeper.get_A_wallet())
+                    self._sender.send(chat_id, self._data_keeper.get_A_wallet(),
+                                      reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}, {'text': 'Далее'}]],
+                                                               'resize_keyboard': True}))
+
                     qr_link = self._qr_generator.generate_qr(self._data_keeper.get_A_wallet())
                     self._sender.send_photo(chat_id, qr_link)
 
                 elif category == 'B':
-                    self._sender.send_back_next_keyboard(chat_id, self._data_keeper.get_B_wallet())
+                    self._sender.send(chat_id, self._data_keeper.get_B_wallet(),
+                                      reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}, {'text': 'Далее'}]],
+                                                               'resize_keyboard': True}))
+
                     qr_link = self._qr_generator.generate_qr(self._data_keeper.get_B_wallet())
                     self._sender.send_photo(chat_id, qr_link)
 
                 self._data_keeper.set_state('bet_3', chat_id)
+
+            elif 'message' in message and message['message']['text'] == 'Отменить':
+                self._data_keeper.set_state(None, chat_id)
+                self._sender.send(chat_id, 'Действие отменено.',
+                                  reply_markup=json.dumps({'keyboard':
+                                      [
+                                          [{'text': '/how_many'}, {'text': '/bet'}],
+                                          [{'text': '/current_round'}, {'text': '/status'}],
+                                          [{'text': '/help'}]
+                                      ],
+                                      'resize_keyboard': True}))
+
+            else:
+                self._sender.send(chat_id, 'Пожалуйста, закончите ставку или нажмите "Отменить".')
+                return
 
         elif state == 'bet_3':
             if message['message']['text'] == 'Далее':
@@ -154,7 +179,8 @@ class CommandHandler:
                 if not wallet:
                     message_2 = self._data_keeper.responses['7'][lang]
 
-                    self._sender.send(chat_id, message_2, reply_keyboard_hide=True)
+                    self._sender.send(chat_id, message_2, reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
+                                                                                   'resize_keyboard': True}))
 
                     self._data_keeper.set_state('bet_2', chat_id)
                 else:
@@ -165,13 +191,23 @@ class CommandHandler:
 
                     keyboard = [button_A, button_B]
 
-                    self._sender.send_with_reply_markup(chat_id, message_2, keyboard)
+                    self._sender.send(chat_id, message_2, reply_markup=json.dumps(keyboard))
                     self._data_keeper.set_state('bet_1', chat_id)
-            elif message['message']['text'] == 'Назад':
+            elif message['message']['text'] == 'Отменить':
                 self._data_keeper.remove_last_bet(chat_id)
-                self._bet(message)
+                self._data_keeper.set_state(None, chat_id)
+
+                self._sender.send(chat_id, 'Действие отменено.',
+                                  reply_markup=json.dumps({'keyboard':
+                                      [
+                                          [{'text': '/how_many'}, {'text': '/bet'}],
+                                          [{'text': '/current_round'}, {'text': '/status'}],
+                                          [{'text': '/help'}]
+                                      ],
+                                      'resize_keyboard': True}))
             else:
-                self._sender.send(chat_id, 'Пожалуйста, завершите ставку, нажав "Далее", либо нажмите "Назад"')
+                self._sender.send(chat_id, 'Пожалуйста, закончите ставку.')
+                return
 
         elif state == 'bet_1':
             use_previous_wallet = int(message['callback_query']['data'])
@@ -180,7 +216,15 @@ class CommandHandler:
             if use_previous_wallet:
                 self._data_keeper.add_wallet_to_last_bet(chat_id, self._data_keeper.get_wallet(chat_id))
                 self._sender.answer_callback_query(chat_id, callback_query_id, None)
-                self._sender.send_reply_keyboard(chat_id, self._data_keeper.responses['10'][lang])
+
+                self._sender.send(chat_id, self._data_keeper.responses['10'][lang],
+                                  reply_markup=json.dumps({'keyboard':
+                                      [
+                                          [{'text': '/how_many'}, {'text': '/bet'}],
+                                          [{'text': '/current_round'}, {'text': '/status'}],
+                                          [{'text': '/help'}]
+                                      ],
+                                      'resize_keyboard': True}))
 
                 self._data_keeper.set_state(None, chat_id)
 
@@ -192,10 +236,25 @@ class CommandHandler:
                 self._data_keeper.set_state('bet_2', chat_id)
 
                 message = self._data_keeper.responses['11'][lang]
-                self._sender.send(chat_id, message, reply_keyboard_hide=True)
+                self._sender.send(chat_id, message,
+                                  reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
+                                                           'resize_keyboard': True}))
 
         elif state == 'bet_2':
             wallet = message['message']['text']
+
+            if wallet == 'Отменить':
+                self._data_keeper.set_state(None, chat_id)
+                self._data_keeper.remove_last_bet(chat_id)
+                self._sender.send(chat_id, 'Действие отменено.',
+                                  reply_markup=json.dumps({'keyboard':
+                                      [
+                                          [{'text': '/how_many'}, {'text': '/bet'}],
+                                          [{'text': '/current_round'}, {'text': '/status'}],
+                                          [{'text': '/help'}]
+                                      ],
+                                      'resize_keyboard': True}))
+                return
 
             if not self._ether_scan.wallet_is_correct(wallet):
                 message = self._data_keeper.responses['22'][lang]
@@ -208,7 +267,15 @@ class CommandHandler:
             self._data_keeper.set_state(None, chat_id)
 
             success_message = self._data_keeper.responses['12'][lang]
-            self._sender.send_reply_keyboard(chat_id, success_message)
+
+            self._sender.send(chat_id, success_message,
+                              reply_markup=json.dumps({'keyboard':
+                                      [
+                                          [{'text': '/how_many'}, {'text': '/bet'}],
+                                          [{'text': '/current_round'}, {'text': '/status'}],
+                                          [{'text': '/help'}]
+                                      ],
+                                      'resize_keyboard': True}))
 
             # TODO: check payment and verify (or not) user's vote
             self._update()
@@ -224,29 +291,49 @@ class CommandHandler:
 
         keyboard = [button_A, button_B]
 
-        announcement = self._data_keeper.responses['38'][lang]\
-                                                        .replace('{#1}', str(self._data_keeper.get_date()))\
-                                                        .replace('{#2}', str(self._data_keeper.get_cases_day()))\
-                                                        .replace('{#3}', str(self._data_keeper.get_control_value()))\
-                                                        .replace('{#4}', str(self._data_keeper.get_control_value() + 1))\
-                                                        .replace('{#5}', str(self._data_keeper.get_rate_A()))\
-                                                        .replace('{#6}', str(self._data_keeper.get_rate_B()))\
-                                                        .replace('{#7}', str(self._data_keeper.get_time_limit()))
+        announcement = self._data_keeper.responses['38'][lang] \
+            .replace('{#1}', str(self._data_keeper.get_date())) \
+            .replace('{#2}', str(self._data_keeper.get_cases_day())) \
+            .replace('{#3}', str(self._data_keeper.get_control_value())) \
+            .replace('{#4}', str(self._data_keeper.get_control_value() + 1)) \
+            .replace('{#5}', str(self._data_keeper.get_rate_A())) \
+            .replace('{#6}', str(self._data_keeper.get_rate_B())) \
+            .replace('{#7}', str(self._data_keeper.get_time_limit()))
 
-        self._sender.send_with_reply_markup(chat_id, announcement, keyboard)
+        self._sender.send(chat_id, announcement, reply_markup=json.dumps({
+                                                                            'inline_keyboard': keyboard,
+                                                                            'resize_keyboard': True}))
+
+        self._sender.send(chat_id, 'Для отмены нажмите "Отменить".',
+                          reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}, {'text': 'Далее'}]],
+                                                   'resize_keyboard': True}))
         self._data_keeper.set_state('bet_0', chat_id)
 
     def _start(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
 
-        self._sender.send_reply_keyboard(chat_id, self._data_keeper.responses['34'][lang])
+        self._sender.send(chat_id, self._data_keeper.responses['34'][lang],
+                          reply_markup=json.dumps({'keyboard':
+                                      [
+                                          [{'text': '/how_many'}, {'text': '/bet'}],
+                                          [{'text': '/current_round'}, {'text': '/status'}],
+                                          [{'text': '/help'}]
+                                      ],
+                                      'resize_keyboard': True}))
 
     def _help(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
 
         message = self._data_keeper.responses['36'][lang]
 
-        self._sender.send_reply_keyboard(chat_id, message)
+        self._sender.send(chat_id, message,
+                          reply_markup=json.dumps({'keyboard':
+                              [
+                                  [{'text': '/how_many'}, {'text': '/bet'}],
+                                  [{'text': '/current_round'}, {'text': '/status'}],
+                                  [{'text': '/help'}]
+                              ],
+                              'resize_keyboard': True}))
 
     def _howmany(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
@@ -255,22 +342,36 @@ class CommandHandler:
         cases_day, cases_all = self._data_keeper.get_cases_day(), self._data_keeper.get_cases_all()
         date = self._data_keeper.get_date()
 
-        message = self._data_keeper.responses['35'][lang].replace('{#1}', str(cases_day))\
-                                                         .replace('{#2}', str(cases_all)).replace('{#3}', str(date))
+        message = self._data_keeper.responses['35'][lang].replace('{#1}', str(cases_day)) \
+            .replace('{#2}', str(cases_all)).replace('{#3}', str(date))
 
-        self._sender.send_reply_keyboard(chat_id, message)
+        self._sender.send(chat_id, message,
+                          reply_markup=json.dumps({'keyboard':
+                              [
+                                  [{'text': '/how_many'}, {'text': '/bet'}],
+                                  [{'text': '/current_round'}, {'text': '/status'}],
+                                  [{'text': '/help'}]
+                              ],
+                              'resize_keyboard': True}))
 
     def _current_round(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
         control_value = self._data_keeper.get_control_value()
 
-        message = self._data_keeper.responses['37'][lang].replace('{#1}', str(control_value))\
-                                                         .replace('{#2}', str(control_value + 1))\
-                                                         .replace('{#3}', str(self._data_keeper.get_rate_A()))\
-                                                         .replace('{#4}', str(self._data_keeper.get_rate_B()))\
-                                                         .replace('{#5}', self._data_keeper.get_time_limit())
+        message = self._data_keeper.responses['37'][lang].replace('{#1}', str(control_value)) \
+            .replace('{#2}', str(control_value + 1)) \
+            .replace('{#3}', str(self._data_keeper.get_rate_A())) \
+            .replace('{#4}', str(self._data_keeper.get_rate_B())) \
+            .replace('{#5}', self._data_keeper.get_time_limit())
 
-        self._sender.send_reply_keyboard(chat_id, message)
+        self._sender.send(chat_id, message,
+                          reply_markup=json.dumps({'keyboard':
+                              [
+                                  [{'text': '/how_many'}, {'text': '/bet'}],
+                                  [{'text': '/current_round'}, {'text': '/status'}],
+                                  [{'text': '/help'}]
+                              ],
+                              'resize_keyboard': True}))
 
     def _set_lang(self, chat_id, message):
         lang = message['message']['text'].split()[1]
@@ -302,6 +403,8 @@ class CommandHandler:
                            f'\n    {self._data_keeper.responses["27"][lang]}: {bet["wallet"]}' \
                            f'\n    {self._data_keeper.responses["28"][lang]}: {status}\n\n'
 
-            self._sender.send_reply_keyboard_short(chat_id, message)
+            self._sender.send(chat_id, message,
+                              reply_markup=json.dumps({'keyboard': [[{'text': '/bet'}, {'text': '/help'}]],
+                                                       'resize_keyboard': True}))
         else:
             self._sender.send(chat_id, self._data_keeper.responses["31"][lang])

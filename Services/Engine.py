@@ -1,6 +1,6 @@
 import requests
 import logging
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import os
 import platform
 import json
@@ -17,6 +17,7 @@ from Services.CommandHandler import CommandHandler
 from Services.EventParser import EventParser
 from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
+from Services.EtherScan import EtherScan
 
 from Services.Handler import Handler
 
@@ -31,6 +32,7 @@ class Engine:
 
         self._command_handler = CommandHandler(self._access_token)
         self._event_parser = EventParser()
+        self._ether_scan = EtherScan()
         self._sender = Sender(self._access_token)
         self._data_keeper = DataKeeper()
         self._data_keeper.update()
@@ -43,6 +45,7 @@ class Engine:
 
         self._updates_queue = Queue()
         self._lock = threading.Lock()
+        self._finish = False
 
         self._logger.info('Engine initialized.')
 
@@ -64,6 +67,7 @@ class Engine:
         log_message = {}
 
         if 'message' in update:
+
             log_message['type'] = 'message'
 
             chat_id = update['message']['from']['id']
@@ -155,11 +159,9 @@ class Engine:
         self._logger.info('Launching long polling with 2 threads...')
 
         try:
+            self._finish = False
             listening_thread = threading.Thread(target=self._listen, daemon=True)
             handling_thread = threading.Thread(target=self._handle, daemon=True)
-            # with ThreadPoolExecutor(max_workers=2) as executor:
-            #     executor.submit(self._listen)
-            #     executor.submit(self._handle)
             listening_thread.start()
             handling_thread.start()
 
@@ -168,22 +170,41 @@ class Engine:
         except KeyboardInterrupt:
             print('Keyboard interrupt. Quit.')
 
-    def _time_limit_exceeded(self):
-        time = datetime.now()
-
-        return time >= self._data_keeper.get_time_limit()
-
-    def _start_bot(self, listen_thread, handle_thread):
-        listen_thread.start()
-        handle_thread.start()
-
     def process(self):
-        # create threads here and give it into start_bot
+        self._configure_first_time()
 
-        while not self._time_limit_exceeded():
-            time.sleep(180)
+        listening_thread = threading.Thread(target=self._listen, daemon=True)
+        handling_thread = threading.Thread(target=self._handle, daemon=True)
 
-        # kill threads here, broadcast message about time limit
+        listening_thread.start()
+        handling_thread.start()
+
+        time_limit = self._data_keeper.get_time_limit()
+
+        while True:
+            remaining_time = (time_limit - datetime.utcnow()).total_seconds()
+
+            if remaining_time <= 0:
+                with self._lock:
+                    self._finish = True
+                break
+
+            if remaining_time // 2 > 10:
+                time.sleep(remaining_time // 2)
+            else:
+                time.sleep(10)
+
+        listening_thread.join()
+        handling_thread.join()
+
+        self._broadcast_time_limit_message()
+
+        listening_thread = threading.Thread(target=self._listen, daemon=True)
+        handling_thread = threading.Thread(target=self._handle, daemon=True)
+
+        listening_thread.start()
+        handling_thread.start()
+
         # start new threads for handling messages, but bets is NOT ALLOWED
 
         # wait results, when event happened - broadcast message with results and send money
@@ -195,13 +216,64 @@ class Engine:
         self._data_keeper.update_control_value(control_value)
         self._data_keeper.set_time_limit('new time limit')
 
+    def _broadcast_time_limit_message(self):
+        users = self._data_keeper.get_users(None)
+        timeout_message = self._data_keeper.responses['40']
+
+        for user in users:
+            lang = user['lang']
+
+            self._sender.send(user['chat_id'], timeout_message[lang]
+                              .replace('{#1}', str(self._data_keeper.get_rate_A())))\
+                              .replace('{#2}', str(self._data_keeper.get_rate_B()))
+
+    def _configure_first_time(self):
+        wallet_A = input('wallet A: ')
+
+        while not self._ether_scan.wallet_is_correct(wallet_A):
+            wallet_A = input('Incorrect wallet, please retry')
+
+        wallet_B = input('wallet B: ')
+
+        while not self._ether_scan.wallet_is_correct(wallet_B):
+            wallet_B = input('Incorrect wallet, please retry')
+
+        control_value = self._event_parser.update()['day']
+        answer = input(f'Use {control_value} as control value? (y/n)')
+
+        if answer == 'y':
+            self._data_keeper.set_control_value(control_value)
+        else:
+            control_value = int(input('enter the control value: '))
+            self._data_keeper.set_control_value(control_value)
+
+        fee = int(input('enter the fee: '))
+        self._data_keeper.set_fee(fee)
+
+        now = datetime.utcnow()
+        day, month, year = now.day, now.month, now.year
+        tomorrow = date(year, month, day) + timedelta(days=1)
+
+        # time limit - 6:00 GMT (9:00 MSK)
+        time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
+        self._data_keeper.set_time_limit(time_limit)
+
+        self._finish = False
+
+        self._logger.info('Configured.')
+
     def _listen(self):
         new_offset = None
 
         while True:
+            with self._lock:
+                if self._finish:
+                    break
+
             updates = self._get_updates(new_offset)
 
             for update in updates:
+                self._log_update(update)
                 print('write new update to queue')
                 last_update_id = update['update_id']
 
@@ -210,8 +282,12 @@ class Engine:
 
                 new_offset = last_update_id + 1
 
-    def _handle(self):
+    def _handle(self, allow_bets=True):
         while True:
+            with self._lock:
+                if self._finish:
+                    break
+
             update = None
             with self._lock:
                 if not self._updates_queue.empty():
@@ -225,7 +301,7 @@ class Engine:
                         self._data_keeper.add_user(update)
 
                     if update['message']['text'].startswith('/'):
-                        self._command_handler.handle_command(update)
+                        self._command_handler.handle_command(update, allow_bets)
                     else:
                         self._command_handler.handle_text_message(update)
 

@@ -12,9 +12,6 @@ class DataKeeper(metaclass=Singleton):
 
         self._event_parser = EventParser()
 
-        self._event_A = 'Заболевших будет <= y'
-        self._event_B = 'Заболевших будет > y'
-
         self._event_A_wallet = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
         self._event_B_wallet = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
@@ -52,7 +49,7 @@ class DataKeeper(metaclass=Singleton):
 
     def remove_last_bet(self, chat_id):
         for n in range(len(self._users)):
-            if self._users[n]['chat_id'] == chat_id:
+            if self._users[n]['chat_id']:
                 del(self._users[n]['bets'][-1])
 
     def get_lang(self, chat_id):
@@ -66,13 +63,16 @@ class DataKeeper(metaclass=Singleton):
                 return user['bets']
 
     def get_users(self, category):
-        result = []
+        if category:
+            result = []
 
-        for user in self._users:
-            if user['category'] == category:
-                result.append(user)
+            for user in self._users:
+                if user['category'] == category:
+                    result.append(user)
 
-        return result
+            return result
+        else:
+            return self._users
 
     def count_bets(self, category):
         result = 0
@@ -200,6 +200,9 @@ class DataKeeper(metaclass=Singleton):
 
     def get_fee(self):
         return self._fee
+
+    def set_fee(self, fee):
+        self._fee = fee
 
     def get_wallet(self, chat_id):
         for user in self._users:
