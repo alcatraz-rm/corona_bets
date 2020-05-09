@@ -191,8 +191,10 @@ class CommandHandler:
 
                     keyboard = [button_A, button_B]
 
-                    self._sender.send(chat_id, message_2, reply_markup=json.dumps(keyboard))
+                    self._sender.send(chat_id, message_2, reply_markup=json.dumps({'inline_keyboard': keyboard,
+                                                                                   'resize_keyboard': True}))
                     self._data_keeper.set_state('bet_1', chat_id)
+
             elif message['message']['text'] == 'Отменить':
                 self._data_keeper.remove_last_bet(chat_id)
                 self._data_keeper.set_state(None, chat_id)
