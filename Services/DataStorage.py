@@ -52,13 +52,23 @@ class DataStorage(metaclass=Singleton):
         return False
 
     def add_user(self, name, login, chat_id, lang):
-        self.__cursor.execute(f"INSERT INTO users values ('{name}', '{login}', {chat_id}, NULL, NULL, '{lang}')")
+        if login:
+            self.__cursor.execute(f"INSERT INTO users values ('{name}', '{login}', {chat_id}, NULL, NULL, '{lang}')")
+        else:
+            self.__cursor.execute(f"INSERT INTO users values ('{name}', NULL, {chat_id}, NULL, NULL, '{lang}')")
+
         self.__connection.commit()
+
+        self._logger.info(f"Add new user: name - {name}, login - {login}, chat_id - {chat_id}, lang - {lang}")
 
     def _get_last_bet_id(self, chat_id):
         self.__cursor.execute(f"SELECT ID from bets where user={chat_id}")
+        bets_ids = self.__cursor.fetchall()
 
-        return max(self.__cursor.fetchall(), key=lambda x: x[0])[0]
+        if bets_ids:
+            return max(self.__cursor.fetchall(), key=lambda x: x[0])[0]
+        else:
+            return None
 
     def add_bet(self, chat_id, category):
         self._bets_number += 1
@@ -66,28 +76,36 @@ class DataStorage(metaclass=Singleton):
         self.__cursor.execute(f"INSERT INTO bets values ({self._bets_number}, '{category}', 0, NULL, {chat_id})")
         self.__connection.commit()
 
-        return self._bets_number  # returns bet id and client save it
+        self._logger.info(f"Add new bet: category - {category}, chat_id - {chat_id}")
 
     def add_wallet_to_last_bet(self, chat_id, wallet):
         last_bet_id = self._get_last_bet_id(chat_id)
-        self.__cursor.execute(f"UPDATE bets SET wallet='{wallet}' WHERE ID={last_bet_id}")
-        self.__connection.commit()
+
+        if last_bet_id:
+            self.__cursor.execute(f"UPDATE bets SET wallet='{wallet}' WHERE ID={last_bet_id}")
+            self.__connection.commit()
+
+            self._logger.info(f"Add wallet {wallet} to last user's bet. chat_id: {chat_id}")
+        else:
+            self._logger.warning(f"Trying to set wallet {wallet} to last user's bet, but this user doesn't have bets."
+                                 f"chat_id: {chat_id}")
 
     def remove_last_bet(self, chat_id):
         last_bet_id = self._get_last_bet_id(chat_id)
-        self.__cursor.execute(f"Delete from bets WHERE ID={last_bet_id}")
-        self.__connection.commit()
+
+        if last_bet_id:
+            self.__cursor.execute(f"Delete from bets WHERE ID={last_bet_id}")
+            self.__connection.commit()
+
+            self._logger.info(f"Remove last user's bet. chat_id: {chat_id}, bet_id: {last_bet_id}")
+        else:
+            self._logger.warning(f"Trying to remove last user's bet, but this user doesn't have bets."
+                                 f"chat_id: {chat_id}")
 
 
 storage = DataStorage()
 print(storage.is_new_user(123))
 print(storage.add_user("John Doe", "john_doe", 123, "ru"))
 print(storage.is_new_user(123))
-
-storage.add_bet(123, 'A')
-storage.add_wallet_to_bet(123, 'abcdef')
-
-storage.add_bet(123, 'B')
-storage.add_wallet_to_bet(123, 'abcdef')
 
 storage.remove_last_bet(123)
