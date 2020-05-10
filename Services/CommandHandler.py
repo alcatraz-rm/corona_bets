@@ -265,8 +265,8 @@ class CommandHandler:
             else:
                 self._data_keeper.remove_last_bet(chat_id)
                 self._data_keeper.set_state(None, chat_id)
-                self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
-                                           'но могу действовать в соответствии со своими командами',
+                self._sender.send(chat_id, 'Я, к сожалению, умею выполнять только команды ниже :)\nВсегда можешь '
+                                           'посмотреть, что я умею по команде /help.',
                                   reply_markup=json.dumps({'keyboard':
                                       [
                                           [{'text': '/how_many'}, {'text': '/bet'}],

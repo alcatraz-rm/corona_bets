@@ -22,6 +22,9 @@ class DataStorage(metaclass=Singleton):
             self.__connection = sqlite3.connect('user_data.db')
             self.__cursor = self.__connection.cursor()
 
+        self.__cursor.execute("SELECT * from bets")
+        self._bets_number = len(self.__cursor.fetchall())
+
     def _configure_database_first_time(self):
         self._logger.info('Start configuring database.')
         self.__cursor.execute("PRAGMA foreign_keys=on")
@@ -31,8 +34,8 @@ class DataStorage(metaclass=Singleton):
 
         self._logger.info("Create table 'users'.")
 
-        self.__cursor.execute("CREATE TABLE bets (category text, status text, wallet text, user integer PRIMARY KEY, "
-                              "FOREIGN KEY (user) REFERENCES users(chat_id))")
+        self.__cursor.execute("CREATE TABLE bets (ID integer PRIMARY KEY, category text, confirmed integer, wallet "
+                              "text, user integer, FOREIGN KEY (user) REFERENCES users(chat_id))")
 
         self._logger.info("Create table 'bets'")
 
@@ -49,7 +52,30 @@ class DataStorage(metaclass=Singleton):
         return False
 
     def add_user(self, name, login, chat_id, lang):
-        self.__cursor.execute(f"INSERT INTO users values ('{name}', '{login}', {chat_id}, 'null', 'null', '{lang}')")
+        self.__cursor.execute(f"INSERT INTO users values ('{name}', '{login}', {chat_id}, NULL, NULL, '{lang}')")
+        self.__connection.commit()
+
+    def _get_last_bet_id(self, chat_id):
+        self.__cursor.execute(f"SELECT ID from bets where user={chat_id}")
+
+        return max(self.__cursor.fetchall(), key=lambda x: x[0])[0]
+
+    def add_bet(self, chat_id, category):
+        self._bets_number += 1
+
+        self.__cursor.execute(f"INSERT INTO bets values ({self._bets_number}, '{category}', 0, NULL, {chat_id})")
+        self.__connection.commit()
+
+        return self._bets_number  # returns bet id and client save it
+
+    def add_wallet_to_last_bet(self, chat_id, wallet):
+        last_bet_id = self._get_last_bet_id(chat_id)
+        self.__cursor.execute(f"UPDATE bets SET wallet='{wallet}' WHERE ID={last_bet_id}")
+        self.__connection.commit()
+
+    def remove_last_bet(self, chat_id):
+        last_bet_id = self._get_last_bet_id(chat_id)
+        self.__cursor.execute(f"Delete from bets WHERE ID={last_bet_id}")
         self.__connection.commit()
 
 
@@ -58,3 +84,10 @@ print(storage.is_new_user(123))
 print(storage.add_user("John Doe", "john_doe", 123, "ru"))
 print(storage.is_new_user(123))
 
+storage.add_bet(123, 'A')
+storage.add_wallet_to_bet(123, 'abcdef')
+
+storage.add_bet(123, 'B')
+storage.add_wallet_to_bet(123, 'abcdef')
+
+storage.remove_last_bet(123)

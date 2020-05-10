@@ -12,6 +12,9 @@ __pycache__/
 auth.json
 users.json
 
+# Database objects
+*.db
+
 # Distribution / packaging
 .Python
 build/
