@@ -347,6 +347,7 @@ class Engine:
                     break
 
             updates = self._get_updates(new_offset)
+            pprint(updates)
 
             for update in updates:
                 self._log_update(update)

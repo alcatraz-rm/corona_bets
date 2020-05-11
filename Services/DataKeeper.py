@@ -57,10 +57,11 @@ class DataKeeper(metaclass=Singleton):
 
     def remove_last_bet(self, chat_id):
         for n in range(len(self._users)):
-            if self._users[n]['chat_id']:
+            if self._users[n]['chat_id'] == chat_id:
                 del(self._users[n]['bets'][-1])
+                self._commit()
 
-        self._commit()
+                return
 
     def get_lang(self, chat_id):
         for user in self._users:
