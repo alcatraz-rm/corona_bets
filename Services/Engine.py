@@ -171,50 +171,102 @@ class Engine:
             print('Keyboard interrupt. Quit.')
 
     def process(self):
+        # TODO: check how data update during all process
+        # TODO: create new thread for waiting and verifying payments
+
         self._configure_first_time()
 
-        listening_thread = threading.Thread(target=self._listen, daemon=True)
-        handling_thread = threading.Thread(target=self._handle, daemon=True)
-
-        listening_thread.start()
-        handling_thread.start()
-
-        time_limit = self._data_keeper.get_time_limit()
-
         while True:
-            remaining_time = (time_limit - datetime.utcnow()).total_seconds()
+            listening_thread = threading.Thread(target=self._listen, daemon=True)
+            handling_thread = threading.Thread(target=self._handle, daemon=True)
 
-            if remaining_time <= 0:
-                with self._lock:
+            listening_thread.start()
+            handling_thread.start()
+
+            self._logger.debug('Start listening and handling threads.')
+
+            time_limit = self._data_keeper.get_time_limit()
+            print(time_limit)
+            self._logger.debug(f'time limit: {time_limit}')
+
+            while True:
+                remaining_time = (time_limit - datetime.utcnow()).total_seconds()
+
+                if remaining_time <= 0:
+                    with self._lock:
+                        self._finish = True
+                    break
+
+                if remaining_time // 2 > 10:
+                    time.sleep(remaining_time // 2)
+                else:
+                    time.sleep(10)
+
+            listening_thread.join()
+            handling_thread.join()
+
+            self._logger.debug('Listening and handling threads joined.')
+
+            self._broadcast_time_limit_message()
+
+            listening_thread = threading.Thread(target=self._listen, daemon=True)
+            handling_thread = threading.Thread(target=self._handle, args=(False, ), daemon=True)
+
+            self._finish = False
+
+            listening_thread.start()
+            handling_thread.start()
+
+            self._logger.debug('Start listening and handling threads (bets are not allowed).')
+
+            old_date_update = self._event_parser.update()['date']
+
+            while True:
+                date_ = self._event_parser.update()['date']
+
+                if date_ != old_date_update:
                     self._finish = True
-                break
+                    break
 
-            if remaining_time // 2 > 10:
-                time.sleep(remaining_time // 2)
+                time.sleep(300)
+
+            listening_thread.join()
+            handling_thread.join()
+
+            self._logger.debug('listening and handling threads (bets are not allowed) joined')
+
+            value = self._event_parser.update()['day']
+            control_value = self._data_keeper.get_control_value()
+
+            if value <= control_value:
+                winner = 'A'
+                rate = self._data_keeper.get_rate_A()
             else:
-                time.sleep(10)
+                winner = 'B'
+                rate = self._data_keeper.get_rate_B()
 
-        listening_thread.join()
-        handling_thread.join()
+            #  pay here or write messages about that in channel, etc.
 
-        self._broadcast_time_limit_message()
+            self._configure_new_round()
+            self._broadcast_new_round_message(winner, rate)
 
-        listening_thread = threading.Thread(target=self._listen, daemon=True)
-        handling_thread = threading.Thread(target=self._handle, daemon=True)
-
-        listening_thread.start()
-        handling_thread.start()
-
-        # start new threads for handling messages, but bets is NOT ALLOWED
-
-        # wait results, when event happened - broadcast message with results and send money
-        # configure for new round, broadcast message about new round and go to next iteration
-
-    def _configure_new_round(self, control_value):
+    def _configure_new_round(self):
         self._data_keeper.reset_users()
 
-        self._data_keeper.update_control_value(control_value)
-        self._data_keeper.set_time_limit('new time limit')
+        now = datetime.utcnow()
+        day, month, year = now.day, now.month, now.year
+        tomorrow = date(year, month, day) + timedelta(days=1)
+
+        # time limit - 6:00 GMT (9:00 MSK)
+        time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
+
+        control_value = self._event_parser.update()['day']
+
+        self._data_keeper.set_control_value(control_value)
+        self._data_keeper.set_time_limit(time_limit)
+        self._data_keeper.update()
+
+        self._finish = False
 
     def _broadcast_time_limit_message(self):
         users = self._data_keeper.get_users(None)
@@ -224,8 +276,22 @@ class Engine:
             lang = user['lang']
 
             self._sender.send(user['chat_id'], timeout_message[lang]
-                              .replace('{#1}', str(self._data_keeper.get_rate_A())))\
-                              .replace('{#2}', str(self._data_keeper.get_rate_B()))
+                              .replace('{#1}', str(self._data_keeper.get_rate_A()))\
+                              .replace('{#2}', str(self._data_keeper.get_rate_B())))
+
+    def _broadcast_new_round_message(self, winner, rate):
+        data = self._event_parser.update()
+        cases_day, cases_all, date_ = data['day'], data['total'], data['date']
+
+        message = self._data_keeper.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate))\
+                                                .replace('{#3}', str(cases_day))\
+                                                .replace('{#4}', str(cases_all))\
+                                                .replace('{#5}', str(date_))
+
+        users = self._data_keeper.get_users(None)
+
+        for user in users:
+            self._sender.send(user['chat_id'], message)
 
     def _configure_first_time(self):
         wallet_A = input('wallet A: ')
@@ -253,10 +319,10 @@ class Engine:
         if answer == 'y':
             self._data_keeper.set_bet_amount(bet_amount)
         else:
-            bet_amount = int(input('enter the bet amount: '))
+            bet_amount = float(input('enter the bet amount: '))
             self._data_keeper.set_bet_amount(bet_amount)
 
-        fee = int(input('enter the fee: '))
+        fee = float(input('enter the fee: '))
         self._data_keeper.set_fee(fee)
 
         now = datetime.utcnow()
@@ -265,6 +331,7 @@ class Engine:
 
         # time limit - 6:00 GMT (9:00 MSK)
         time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
+
         self._data_keeper.set_time_limit(time_limit)
 
         self._finish = False
@@ -319,7 +386,7 @@ class Engine:
                     state = self._data_keeper.get_state(chat_id)
 
                     if state:
-                        self._command_handler.handle_state(chat_id, state, update)
+                        self._command_handler.handle_state(chat_id, state, update, allow_bets)
                     else:
                         self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
 

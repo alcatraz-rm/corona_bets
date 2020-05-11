@@ -46,7 +46,7 @@ class CommandHandler:
 
         self._data_keeper.update_rates(rate_A, rate_B)
 
-    def handle_text_message(self, message_object):
+    def handle_text_message(self, message_object, allow_bets=True):
         chat_id = message_object['message']['from']['id']
 
         lang = self._data_keeper.get_lang(chat_id)
@@ -59,7 +59,7 @@ class CommandHandler:
         state = self._data_keeper.get_state(chat_id)
 
         if state:
-            self.handle_state(chat_id, state, message_object)
+            self.handle_state(chat_id, state, message_object, allow_bets)
             return
 
         self._sender.send(chat_id, self._data_keeper.responses['1'][lang])
@@ -78,7 +78,15 @@ class CommandHandler:
         state = self._data_keeper.get_state(chat_id)
 
         if state:
-            self._sender.send(chat_id, 'Пожалуйста, закончите ставку.')
+            self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
+                                       'но могу действовать в соответствии со своими командами',
+                              reply_markup=json.dumps({'keyboard':
+                                  [
+                                      [{'text': '/how_many'}, {'text': '/bet'}],
+                                      [{'text': '/current_round'}, {'text': '/status'}],
+                                      [{'text': '/help'}]
+                                  ],
+                                  'resize_keyboard': True}))
             return
 
         if command[0] in self._info_commands:
@@ -116,7 +124,11 @@ class CommandHandler:
 
         self._sender.send(chat_id, self._data_keeper.responses['3'][lang])
 
-    def handle_state(self, chat_id, state, message):
+    def handle_state(self, chat_id, state, message, allow_bets=True):
+        if not allow_bets:
+            self._sender.send(chat_id, 'Извините, время для участия в текущей игре вышло.')
+            return
+
         lang = self._data_keeper.get_lang(chat_id)
 
         if not lang:
@@ -262,6 +274,12 @@ class CommandHandler:
                     self._sender.send(chat_id, message,
                                       reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
                                                                'resize_keyboard': True}))
+
+            elif 'message' in message and message['message']['text'] == 'Отменить':
+                self._sender.send(chat_id, 'Действие отменено.')
+
+                self._data_keeper.set_state(None, chat_id)
+                self._data_keeper.remove_last_bet(chat_id)
             else:
                 self._data_keeper.remove_last_bet(chat_id)
                 self._data_keeper.set_state(None, chat_id)
@@ -374,7 +392,7 @@ class CommandHandler:
     def _howmany(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
 
-        self._data_keeper.update()
+        # self._data_keeper.update()
         cases_day, cases_all = self._data_keeper.get_cases_day(), self._data_keeper.get_cases_all()
         date = self._data_keeper.get_date()
 
@@ -398,7 +416,7 @@ class CommandHandler:
             .replace('{#2}', str(control_value + 1)) \
             .replace('{#3}', str(self._data_keeper.get_rate_A())) \
             .replace('{#4}', str(self._data_keeper.get_rate_B())) \
-            .replace('{#5}', self._data_keeper.get_time_limit())
+            .replace('{#5}', str(self._data_keeper.get_time_limit()))
 
         self._sender.send(chat_id, message,
                           reply_markup=json.dumps({'keyboard':

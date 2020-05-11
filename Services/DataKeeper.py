@@ -100,7 +100,9 @@ class DataKeeper(metaclass=Singleton):
             self._users[n]['bets'] = []
 
         self._commit()
-        self._logger.info('Users were reset.')
+
+        self._rate_A, self._rate_B = 'N/a', 'N/a'
+        self._logger.info('Users and rates were reset.')
 
     def update(self):
         data = self._event_parser.update()
