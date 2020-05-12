@@ -79,6 +79,8 @@ class CommandHandler:
         state = self._data_keeper.get_state(chat_id)
 
         if state:
+            self._data_keeper.set_state(None, chat_id)
+
             self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
                                        'но могу действовать в соответствии со своими командами',
                               reply_markup=json.dumps({'keyboard':
