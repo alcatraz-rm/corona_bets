@@ -29,6 +29,7 @@ class DataKeeper(metaclass=Singleton):
         self._time_limit = 'time limit here'
 
         self._bet_amount = 0.03
+        self._last_id = 0
 
         self.responses = self._read_responses()
 
@@ -90,7 +91,7 @@ class DataKeeper(metaclass=Singleton):
 
         for user in self._users:
             for bet in user['bets']:
-                if bet['category'] == category:
+                if bet['category'] == category and bet['confirmed']:
                     result += 1
 
         return result
@@ -106,7 +107,25 @@ class DataKeeper(metaclass=Singleton):
         self._logger.info('Users and rates were reset.')
 
     def get_unverified_bets(self):
-        pass
+        result = []
+
+        for user in self._users:
+            result.append({'chat_id': user['chat_id'], 'bets': []})
+
+            for bet in user['bets']:
+                if not bet['confirmed']:
+                    result[-1]['bets'].append(bet)
+
+        return result
+
+    def verify_bet(self, chat_id, bet_id):
+        for n, user in enumerate(self._users):
+            if user['chat_id'] == chat_id:
+                for k, bet in enumerate(self._users[n]['bets']):
+                    if bet['bet_id'] == bet_id:
+                        self._users[n]['bets'][k]['confirmed'] = True
+
+        self._commit()
 
     def update(self):
         data = self._event_parser.update()
@@ -168,10 +187,11 @@ class DataKeeper(metaclass=Singleton):
         for n, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 self._users[n]['bets'].append({'category': category,
-                                               'confirmed': False,
-                                               'wallet': None,
+                                               'confirmed': -1,
+                                               'wallet': None, 'bet_id': self._last_id + 1
                                                })
                 self._commit()
+                self._last_id += 1
                 return
 
     def _commit(self):
@@ -182,6 +202,7 @@ class DataKeeper(metaclass=Singleton):
         for n, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 self._users[n]['bets'][-1]['wallet'] = wallet
+                self._users[n]['bets'][-1]['confirmed'] = False
                 self._commit()
                 return
 

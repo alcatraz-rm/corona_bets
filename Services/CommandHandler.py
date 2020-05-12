@@ -25,7 +25,7 @@ class CommandHandler:
         self._ether_scan = EtherScan()
         self._qr_generator = QRGenerator()
 
-    def _update(self):
+    def update_rates(self):
         bets_A = self._data_keeper.count_bets('A')
         bets_B = self._data_keeper.count_bets('B')
 
@@ -272,7 +272,7 @@ class CommandHandler:
                     self._data_keeper.set_state(None, chat_id)
 
                     # TODO: check payment and verify (or not) user's vote
-                    self._update()
+                    # self.update()
 
                 else:
                     self._sender.answer_callback_query(chat_id, callback_query_id, '')
@@ -340,7 +340,7 @@ class CommandHandler:
                                       'resize_keyboard': True}))
 
             # TODO: check payment and verify (or not) user's vote
-            self._update()
+            self.update_rates()
 
     def _bet(self, command_object):
         chat_id = command_object['message']['from']['id']
@@ -484,7 +484,8 @@ class CommandHandler:
                 message += f'{self._data_keeper.responses["25"][lang]} <b>{n + 1}</b>:' \
                            f'\n{self._data_keeper.responses["26"][lang]}: {bet["category"]}' \
                            f'\n{self._data_keeper.responses["27"][lang]}: {bet["wallet"]}' \
-                           f'\n{self._data_keeper.responses["28"][lang]}: {status}\n\n'
+                           f'\n{self._data_keeper.responses["28"][lang]}: {status}' \
+                           f'\nID: {bet["bet_id"]}\n'
 
             self._sender.send(chat_id, message,
                               reply_markup=json.dumps({'keyboard': [[{'text': '/bet'}, {'text': '/help'}],

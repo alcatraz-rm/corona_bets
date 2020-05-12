@@ -181,11 +181,13 @@ class Engine:
         while True:
             listening_thread = threading.Thread(target=self._listen, daemon=True)
             handling_thread = threading.Thread(target=self._handle, daemon=True)
+            verify_bets_thread = threading.Thread(target=self._verify_bets, daemon=True)
 
             listening_thread.start()
             handling_thread.start()
+            verify_bets_thread.start()
 
-            self._logger.debug('Start listening and handling threads.')
+            self._logger.debug('Start listening, handling and bets verifying thread threads.')
 
             time_limit = self._data_keeper.get_time_limit()
             print(time_limit)
@@ -298,19 +300,18 @@ class Engine:
         users = self._data_keeper.get_users(None)
 
         for user in users:
+            win_amount = 0.0
+
+            for bet in user['bets']:
+                if bet['confirmed'] and bet['category'] == winner:
+                    win_amount += self._data_keeper.get_bet_amount() * rate
+
             self._sender.send(user['chat_id'], message)
 
+            if win_amount > 0:
+                self._sender.send(user['chat_id'], f'Ваш выигрыш составляет: {win_amount}')
+
     def _configure_first_time(self):
-        wallet_A = input('wallet A: ')
-
-        while not self._ether_scan.wallet_is_correct(wallet_A):
-            wallet_A = input('Incorrect wallet, please retry')
-
-        wallet_B = input('wallet B: ')
-
-        while not self._ether_scan.wallet_is_correct(wallet_B):
-            wallet_B = input('Incorrect wallet, please retry')
-
         control_value = self._event_parser.update()['day']
         answer = input(f'Use {control_value} as control value? (y/n)')
 
@@ -376,6 +377,18 @@ class Engine:
                 if not self._updates_queue.empty():
                     update = self._updates_queue.get()
 
+            if update and 'bet_id' in update:
+                state = self._data_keeper.get_state(update['chat_id'])
+
+                if not state:
+
+                    self._sender.send(update['chat_id'], f'Ваш голос подтвержден.\nID: {update["bet_id"]}')
+                else:
+                    with self._lock:
+                        self._updates_queue.put(update)
+
+                continue
+
             if update:
                 print('start handling new update')
 
@@ -400,7 +413,25 @@ class Engine:
                 print('end handling new update')
 
     def _verify_bets(self):
-        pass
+        while True:
+            with self._lock:
+                if self._finish:
+                    return
+
+            bets = self._data_keeper.get_unverified_bets()
+
+            for bet in bets:
+                chat_id = bet['chat_id']
+
+                for bet_ in bet['bets']:
+                    time.sleep(2)
+                    bet_id = bet_['bet_id']
+                    # verify bet insted of sleep
+                    self._data_keeper.verify_bet(chat_id, bet_id)
+
+                    with self._lock:
+                        self._command_handler.update_rates()
+                        self._updates_queue.put({'bet_id': bet_id, 'chat_id': chat_id})
 
     def launch_hook(self, address):
         self._logger.info('Launching webhook...')
