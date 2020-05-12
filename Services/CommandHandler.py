@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
@@ -117,6 +118,7 @@ class CommandHandler:
                     return
                 else:
                     self._sender.send(chat_id, 'Извините, время для участия в текущей игре вышло.')
+                    return
 
             elif command[0] == '/set_lang':
                 self._set_lang(chat_id, command_object)
@@ -350,8 +352,8 @@ class CommandHandler:
             .replace('{#2}', str(self._data_keeper.get_cases_day())) \
             .replace('{#3}', str(self._data_keeper.get_control_value())) \
             .replace('{#4}', str(self._data_keeper.get_control_value() + 1)) \
-            .replace('{#5}', str(self._data_keeper.get_rate_A())) \
-            .replace('{#6}', str(self._data_keeper.get_rate_B())) \
+            .replace('{#5}', Decimal(str(self._data_keeper.get_rate_A())).quantize(Decimal("1.000"))) \
+            .replace('{#6}', Decimal(str(self._data_keeper.get_rate_B())).quantize(Decimal("1.000"))) \
             .replace('{#7}', str(self._data_keeper.get_time_limit()))
 
         self._sender.send(chat_id, announcement, reply_markup=json.dumps({
@@ -414,8 +416,8 @@ class CommandHandler:
 
         message = self._data_keeper.responses['37'][lang].replace('{#1}', str(control_value)) \
             .replace('{#2}', str(control_value + 1)) \
-            .replace('{#3}', str(self._data_keeper.get_rate_A())) \
-            .replace('{#4}', str(self._data_keeper.get_rate_B())) \
+            .replace('{#3}', str(Decimal(str(self._data_keeper.get_rate_A())).quantize(Decimal("1.000")))) \
+            .replace('{#4}', str(Decimal(str(self._data_keeper.get_rate_B())).quantize(Decimal("1.000")))) \
             .replace('{#5}', str(self._data_keeper.get_time_limit()))
 
         self._sender.send(chat_id, message,

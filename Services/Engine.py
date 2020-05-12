@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import requests
 import logging
 from datetime import datetime, date, timedelta
@@ -197,10 +199,10 @@ class Engine:
                         self._finish = True
                     break
 
-                if remaining_time // 2 > 10:
+                if remaining_time // 2 > 3:
                     time.sleep(remaining_time // 2)
                 else:
-                    time.sleep(10)
+                    time.sleep(3)
 
             listening_thread.join()
             handling_thread.join()
@@ -240,10 +242,10 @@ class Engine:
 
             if value <= control_value:
                 winner = 'A'
-                rate = self._data_keeper.get_rate_A()
+                rate = Decimal(str(self._data_keeper.get_rate_A())).quantize(Decimal("1.000"))
             else:
                 winner = 'B'
-                rate = self._data_keeper.get_rate_B()
+                rate = Decimal(str(self._data_keeper.get_rate_B())).quantize(Decimal("1.000"))
 
             #  pay here or write messages about that in channel, etc.
 
@@ -276,8 +278,10 @@ class Engine:
             lang = user['lang']
 
             self._sender.send(user['chat_id'], timeout_message[lang]
-                              .replace('{#1}', str(self._data_keeper.get_rate_A()))\
-                              .replace('{#2}', str(self._data_keeper.get_rate_B())))
+                              .replace('{#1}', 
+                                       str(Decimal(str(self._data_keeper.get_rate_A())).quantize(Decimal("1.000"))))\
+                              .replace('{#2}',
+                                       str(Decimal(str(self._data_keeper.get_rate_B())).quantize(Decimal("1.000")))))
 
     def _broadcast_new_round_message(self, winner, rate):
         data = self._event_parser.update()
