@@ -240,12 +240,15 @@ class Engine:
             value = self._event_parser.update()['day']
             control_value = self._data_keeper.get_control_value()
 
+            rate_A, rate_B = self._command_handler.represent_rates(self._data_keeper.get_rate_A(),
+                                                                   self._data_keeper.get_rate_B())
+
             if value <= control_value:
                 winner = 'A'
-                rate = Decimal(str(self._data_keeper.get_rate_A())).quantize(Decimal("1.000"))
+                rate = rate_A
             else:
                 winner = 'B'
-                rate = Decimal(str(self._data_keeper.get_rate_B())).quantize(Decimal("1.000"))
+                rate = rate_B
 
             #  pay here or write messages about that in channel, etc.
 
@@ -395,6 +398,9 @@ class Engine:
                         self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
 
                 print('end handling new update')
+
+    def _verify_bets(self):
+        pass
 
     def launch_hook(self, address):
         self._logger.info('Launching webhook...')

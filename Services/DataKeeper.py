@@ -105,6 +105,9 @@ class DataKeeper(metaclass=Singleton):
         self._rate_A, self._rate_B = 'N/a', 'N/a'
         self._logger.info('Users and rates were reset.')
 
+    def get_unverified_bets(self):
+        pass
+
     def update(self):
         data = self._event_parser.update()
 

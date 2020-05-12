@@ -1,5 +1,6 @@
 import json
 from decimal import Decimal
+from datetime import timedelta
 
 from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
@@ -23,11 +24,6 @@ class CommandHandler:
         self._sender = Sender(access_token)
         self._ether_scan = EtherScan()
         self._qr_generator = QRGenerator()
-
-    def _get_announcement(self, lang):
-        return self._data_keeper.responses['4'][lang] \
-            .replace('{#1}', self._data_keeper.get_date().isoformat(sep=' ')) \
-            .replace('{#2}', str(self._data_keeper.get_cases_day()))
 
     def _update(self):
         bets_A = self._data_keeper.count_bets('A')
@@ -63,7 +59,15 @@ class CommandHandler:
             self.handle_state(chat_id, state, message_object, allow_bets)
             return
 
-        self._sender.send(chat_id, self._data_keeper.responses['1'][lang])
+        self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
+                                   'но могу действовать в соответствии со своими командами',
+                          reply_markup=json.dumps({'keyboard':
+                              [
+                                  [{'text': '/how_many'}, {'text': '/bet'}],
+                                  [{'text': '/current_round'}, {'text': '/status'}],
+                                  [{'text': '/help'}]
+                              ],
+                              'resize_keyboard': True}))
 
     def handle_command(self, command_object, allow_bets):
         chat_id = command_object['message']['from']['id']
@@ -152,7 +156,7 @@ class CommandHandler:
 
                 message_1 = self._data_keeper.responses['39'][lang].replace('{#1}', category)\
                     .replace('{#2}', str(self._data_keeper.get_bet_amount())) \
-                    .replace('{#3}', str(self._data_keeper.get_time_limit()))
+                    .replace('{#3}', f'{self._data_keeper.get_time_limit()} GMT')
 
                 self._sender.send(chat_id, message_1)
 
@@ -341,6 +345,7 @@ class CommandHandler:
     def _bet(self, command_object):
         chat_id = command_object['message']['from']['id']
         lang = self._data_keeper.get_lang(chat_id)
+        rate_A, rate_B = self.represent_rates(self._data_keeper.get_rate_A(), self._data_keeper.get_rate_B())
 
         self._data_keeper.set_state(None, chat_id)
 
@@ -354,18 +359,37 @@ class CommandHandler:
             .replace('{#2}', str(self._data_keeper.get_cases_day())) \
             .replace('{#3}', str(self._data_keeper.get_control_value())) \
             .replace('{#4}', str(self._data_keeper.get_control_value() + 1)) \
-            .replace('{#5}', Decimal(str(self._data_keeper.get_rate_A())).quantize(Decimal("1.000"))) \
-            .replace('{#6}', Decimal(str(self._data_keeper.get_rate_B())).quantize(Decimal("1.000"))) \
-            .replace('{#7}', str(self._data_keeper.get_time_limit()))
+            .replace('{#5}', rate_A) \
+            .replace('{#6}', rate_B) \
+            .replace('{#7}', f'{self._data_keeper.get_time_limit()} GMT')
 
-        self._sender.send(chat_id, announcement, reply_markup=json.dumps({
-                                                                            'inline_keyboard': keyboard,
-                                                                            'resize_keyboard': True}))
+        self._sender.send(chat_id, announcement, reply_markup=json.dumps({'inline_keyboard': keyboard,
+                                                                          'resize_keyboard': True}))
 
         self._sender.send(chat_id, 'Для отмены нажмите "Отменить".',
                           reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
                                                    'resize_keyboard': True}))
         self._data_keeper.set_state('bet_0', chat_id)
+
+    @staticmethod
+    def represent_rates(rate_A, rate_B):
+        if rate_A != 'N/a' and rate_B != 'N/a':
+            rate_A = str(Decimal(str(rate_A)).quantize(Decimal("1.000")))
+            rate_B = str(Decimal(str(rate_B)).quantize(Decimal("1.000")))
+
+        elif rate_A != 'N/a':
+            rate_A = str(Decimal(str(rate_A)).quantize(Decimal("1.000")))
+            rate_B = str(rate_B)
+
+        elif rate_B != 'N/a':
+            rate_B = str(Decimal(str(rate_B)).quantize(Decimal("1.000")))
+            rate_A = str(rate_A)
+
+        else:
+            rate_A = str(rate_A)
+            rate_B = str(rate_B)
+
+        return rate_A, rate_B
 
     def _start(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
@@ -398,10 +422,10 @@ class CommandHandler:
 
         # self._data_keeper.update()
         cases_day, cases_all = self._data_keeper.get_cases_day(), self._data_keeper.get_cases_all()
-        date = self._data_keeper.get_date()
+        date = self._data_keeper.get_date() - timedelta(hours=3)
 
         message = self._data_keeper.responses['35'][lang].replace('{#1}', str(cases_day)) \
-            .replace('{#2}', str(cases_all)).replace('{#3}', str(date))
+            .replace('{#2}', str(cases_all)).replace('{#3}', f'{date} GMT')
 
         self._sender.send(chat_id, message,
                           reply_markup=json.dumps({'keyboard':
@@ -415,11 +439,12 @@ class CommandHandler:
     def _current_round(self, chat_id):
         lang = self._data_keeper.get_lang(chat_id)
         control_value = self._data_keeper.get_control_value()
+        rate_A, rate_B = self.represent_rates(self._data_keeper.get_rate_A(), self._data_keeper.get_rate_B())
 
         message = self._data_keeper.responses['37'][lang].replace('{#1}', str(control_value)) \
             .replace('{#2}', str(control_value + 1)) \
-            .replace('{#3}', str(Decimal(str(self._data_keeper.get_rate_A())).quantize(Decimal("1.000")))) \
-            .replace('{#4}', str(Decimal(str(self._data_keeper.get_rate_B())).quantize(Decimal("1.000")))) \
+            .replace('{#3}', rate_A) \
+            .replace('{#4}', rate_B) \
             .replace('{#5}', str(self._data_keeper.get_time_limit()))
 
         self._sender.send(chat_id, message,
@@ -462,7 +487,8 @@ class CommandHandler:
                            f'\n{self._data_keeper.responses["28"][lang]}: {status}\n\n'
 
             self._sender.send(chat_id, message,
-                              reply_markup=json.dumps({'keyboard': [[{'text': '/bet'}, {'text': '/help'}]],
+                              reply_markup=json.dumps({'keyboard': [[{'text': '/bet'}, {'text': '/help'}],
+                                                                    [{'text': '/current_round'}]],
                                                        'resize_keyboard': True}))
         else:
             self._sender.send(chat_id, self._data_keeper.responses["31"][lang])
