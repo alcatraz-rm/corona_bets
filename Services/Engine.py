@@ -300,13 +300,14 @@ class Engine:
         users = self._data_keeper.get_users(None)
 
         for user in users:
-            win_amount = 0.0
+            win_amount = 0
 
             for bet in user['bets']:
                 if bet['confirmed'] and bet['category'] == winner:
                     win_amount += self._data_keeper.get_bet_amount() * rate
 
             self._sender.send(user['chat_id'], message)
+            self._logger.info(f'User {user["name"]} wins {win_amount}')
 
             if win_amount > 0:
                 self._sender.send(user['chat_id'], f'Ваш выигрыш составляет: {win_amount}')

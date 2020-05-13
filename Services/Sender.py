@@ -1,7 +1,6 @@
 import requests
 import json
 import logging
-from pprint import pprint
 
 
 class Sender:
@@ -38,8 +37,13 @@ class Sender:
 
         self._logger.info(response.json())
 
-    def send_photo(self, chat_id, photo):
-        response = requests.post(self._requests_url + 'sendPhoto', {'chat_id': chat_id, 'photo': photo}, )
+    def send_photo(self, chat_id, photo, reply_markup=None):
+        if not reply_markup:
+            response = requests.post(self._requests_url + 'sendPhoto', {'chat_id': chat_id, 'photo': photo})
+        else:
+            response = requests.post(self._requests_url + 'sendPhoto', {'chat_id': chat_id, 'photo': photo,
+                                                                        'reply_markup': reply_markup})
+
         self._logger.info(response.json())
 
     def send(self, chat_id, text, reply_markup=None, parse_mode='HTML'):
