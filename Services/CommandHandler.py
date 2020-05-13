@@ -403,17 +403,15 @@ class CommandHandler:
     @staticmethod
     def represent_rates(rate_A, rate_B):
         if rate_A != 'N/a' and rate_B != 'N/a':
-            rate_A = math.trunc(rate_A * 1000) / 1000
-            rate_B = math.trunc(rate_B * 1000) / 1000
-            # rate_A = str(Decimal(str(rate_A)).quantize(Decimal("1.000")))
-            # rate_B = str(Decimal(str(rate_B)).quantize(Decimal("1.000")))
+            rate_A = str(math.trunc(rate_A * 1000) / 1000)
+            rate_B = str(math.trunc(rate_B * 1000) / 1000)
 
         elif rate_A != 'N/a':
-            rate_A = math.trunc(rate_A * 1000) / 1000
+            rate_A = str(math.trunc(rate_A * 1000) / 1000)
             rate_B = str(rate_B)
 
         elif rate_B != 'N/a':
-            rate_B = math.trunc(rate_B * 1000) / 1000
+            rate_B = str(math.trunc(rate_B * 1000) / 1000)
             rate_A = str(rate_A)
 
         else:
