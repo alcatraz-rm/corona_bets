@@ -1,6 +1,7 @@
-from bs4 import BeautifulSoup
-import requests
 import datetime
+
+import requests
+from bs4 import BeautifulSoup
 
 
 class EventParser:
@@ -9,15 +10,15 @@ class EventParser:
         self._date_selector = '#operational-data > div.cv-banner__left > div'
         self._day_selector = '#app > article > section.cv-banner > div > div > div.cv-banner__bottom > ' \
                              'div.cv-countdown > div:nth-child(3) > div.cv-countdown__item-value._accent > span'
-        self._all_selector = '#app > article > section.cv-banner > div > div > div.cv-banner__bottom > ' \
-                             'div.cv-countdown > div:nth-child(2) > div.cv-countdown__item-value._accent > span'
+        self._total_selector = '#app > article > section.cv-banner > div > div > div.cv-banner__bottom > ' \
+                               'div.cv-countdown > div:nth-child(2) > div.cv-countdown__item-value._accent > span'
 
     def update(self):
         response = requests.get(self._event_url)
         soup = BeautifulSoup(response.text, 'lxml')
 
         return {'day': int(soup.select(self._day_selector)[0].text.replace(' ', '')),
-                'total': int(soup.select(self._all_selector)[0].text.replace(' ', '')),
+                'total': int(soup.select(self._total_selector)[0].text.replace(' ', '')),
                 'date': self._parse_date(soup.select(self._date_selector)[0].text)}
 
     def event_check(self, control_value):

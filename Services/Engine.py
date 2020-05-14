@@ -37,7 +37,7 @@ class Engine:
         self._ether_scan = EtherScan()
         self._sender = Sender(self._access_token)
         self._data_keeper = DataKeeper()
-        self._data_keeper.update()
+        self._data_keeper.update_statistics()
 
         self._application = tornado.web.Application([
             (r"/",
@@ -65,7 +65,7 @@ class Engine:
         return requests.get(self._requests_url + 'getUpdates',
                             {'timeout': timeout, 'offset': offset}).json()['result']
 
-    def _log_update(self, update):
+    def _log_update(self, update_statistics):
         log_message = {}
 
         if 'message' in update:
@@ -110,7 +110,7 @@ class Engine:
         else:
             log_message = update
 
-        self._logger.info(f'New update: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
+        self._logger.info(f'New update_statistics: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
 
     def launch_long_polling(self):
         self._logger.info('Launching long polling...')
@@ -121,7 +121,7 @@ class Engine:
             while True:
                 updates = self._get_updates(new_offset)
                 for update in updates:
-                    # pprint(update)
+                    # pprint(update_statistics)
 
                     self._log_update(update)
 
@@ -129,7 +129,7 @@ class Engine:
                         if 'message' in update:
                             chat_id = update['message']['from']['id']
 
-                            if self._data_keeper.is_new_user(update):
+                            if self._data_keeper.is_new_user(chat_id):
                                 self._data_keeper.add_user(update)
 
                             last_update_id = update['update_id']
@@ -173,7 +173,7 @@ class Engine:
             print('Keyboard interrupt. Quit.')
 
     def process(self):
-        # TODO: check how data update during all process
+        # TODO: check how data update_statistics during all process
         # TODO: create new thread for waiting and verifying payments
 
         self._configure_first_time()
@@ -271,7 +271,7 @@ class Engine:
 
         self._data_keeper.set_control_value(control_value)
         self._data_keeper.set_time_limit(time_limit)
-        self._data_keeper.update()
+        self._data_keeper.update_statistics()
 
         self._finish = False
 
@@ -279,14 +279,13 @@ class Engine:
         users = self._data_keeper.get_users(None)
         timeout_message = self._data_keeper.responses['40']
 
+        rate_A, rate_B = self._command_handler.represent_rates(self._data_keeper.get_rate_A(),
+                                                               self._data_keeper.get_rate_B())
+
         for user in users:
             lang = user['lang']
 
-            self._sender.send(user['chat_id'], timeout_message[lang]
-                              .replace('{#1}', 
-                                       str(Decimal(str(self._data_keeper.get_rate_A())).quantize(Decimal("1.000"))))\
-                              .replace('{#2}',
-                                       str(Decimal(str(self._data_keeper.get_rate_B())).quantize(Decimal("1.000")))))
+            self._sender.send(user['chat_id'], timeout_message[lang].replace('{#1}', rate_A).replace('{#2}', rate_B))
 
     def _broadcast_new_round_message(self, winner, rate):
         data = self._event_parser.update()
@@ -298,6 +297,7 @@ class Engine:
                                                 .replace('{#5}', str(date_))
 
         users = self._data_keeper.get_users(None)
+        rate = float(rate)
 
         for user in users:
             win_amount = 0
@@ -359,7 +359,7 @@ class Engine:
 
             for update in updates:
                 self._log_update(update)
-                print('write new update to queue')
+                print('write new update_statistics to queue')
                 last_update_id = update['update_id']
 
                 with self._lock:
@@ -391,10 +391,11 @@ class Engine:
                 continue
 
             if update:
-                print('start handling new update')
+                print('start handling new update_statistics')
 
                 if 'message' in update:
-                    if self._data_keeper.is_new_user(update):
+                    chat_id = update['message']['from']['id']
+                    if self._data_keeper.is_new_user(chat_id):
                         self._data_keeper.add_user(update)
 
                     if update['message']['text'].startswith('/'):
@@ -411,7 +412,7 @@ class Engine:
                     else:
                         self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
 
-                print('end handling new update')
+                print('end handling new update_statistics')
 
     def _verify_bets(self):
         while True:
@@ -419,7 +420,7 @@ class Engine:
                 if self._finish:
                     return
 
-            bets = self._data_keeper.get_unverified_bets()
+            bets = self._data_keeper.get_unconfirmed_bets()
 
             for bet in bets:
                 chat_id = bet['chat_id']
@@ -428,7 +429,7 @@ class Engine:
                     time.sleep(2)
                     bet_id = bet_['bet_id']
                     # verify bet insted of sleep
-                    self._data_keeper.verify_bet(chat_id, bet_id)
+                    self._data_keeper.confirm_bet(chat_id, bet_id)
 
                     with self._lock:
                         self._command_handler.update_rates()

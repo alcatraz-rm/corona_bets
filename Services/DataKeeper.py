@@ -1,9 +1,8 @@
 import json
 import logging
 
-
-from Services.Singleton import Singleton
 from Services.EventParser import EventParser
+from Services.Singleton import Singleton
 
 
 class DataKeeper(metaclass=Singleton):
@@ -21,7 +20,7 @@ class DataKeeper(metaclass=Singleton):
         self._rate_B = 'N/a'
         self._fee = 0.1
 
-        self._cases_all = None
+        self._cases_total = None
         self._cases_day = None
         self._date = None
 
@@ -33,7 +32,7 @@ class DataKeeper(metaclass=Singleton):
 
         self.responses = self._read_responses()
 
-        self.update()
+        self.update_statistics()
         self._logger.info('DataKeeper initialized.')
 
     @staticmethod
@@ -56,10 +55,13 @@ class DataKeeper(metaclass=Singleton):
     def get_control_value(self):
         return self._control_value
 
+    def set_control_value(self, control_value):
+        self._control_value = control_value
+
     def remove_last_bet(self, chat_id):
         for n in range(len(self._users)):
             if self._users[n]['chat_id'] == chat_id:
-                del(self._users[n]['bets'][-1])
+                del (self._users[n]['bets'][-1])
                 self._commit()
 
                 return
@@ -86,7 +88,7 @@ class DataKeeper(metaclass=Singleton):
         else:
             return self._users
 
-    def count_bets(self, category):
+    def count_confirmed_bets(self, category):
         result = 0
 
         for user in self._users:
@@ -106,7 +108,7 @@ class DataKeeper(metaclass=Singleton):
         self._rate_A, self._rate_B = 'N/a', 'N/a'
         self._logger.info('Users and rates were reset.')
 
-    def get_unverified_bets(self):
+    def get_unconfirmed_bets(self):
         result = []
 
         for user in self._users:
@@ -118,7 +120,7 @@ class DataKeeper(metaclass=Singleton):
 
         return result
 
-    def verify_bet(self, chat_id, bet_id):
+    def confirm_bet(self, chat_id, bet_id):
         for n, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 for k, bet in enumerate(self._users[n]['bets']):
@@ -127,18 +129,16 @@ class DataKeeper(metaclass=Singleton):
 
         self._commit()
 
-    def update(self):
+    def update_statistics(self):
         data = self._event_parser.update()
 
-        self._cases_all = data['total']
+        self._cases_total = data['total']
         self._cases_day = data['day']
         self._date = data['date']
 
         self._logger.info('Event updated.')
 
-    def is_new_user(self, message):
-        chat_id = message['message']['from']['id']
-
+    def is_new_user(self, chat_id):
         for user in self._users:
             if user['chat_id'] == chat_id:
                 return False
@@ -214,11 +214,8 @@ class DataKeeper(metaclass=Singleton):
     def get_cases_day(self):
         return self._cases_day
 
-    def set_control_value(self, control_value):
-        self._control_value = control_value
-
     def get_cases_all(self):
-        return self._cases_all
+        return self._cases_total
 
     def get_date(self):
         return self._date

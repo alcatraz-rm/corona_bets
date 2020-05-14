@@ -21,14 +21,14 @@ class CommandHandler:
         self._action_commands = ['/bet', '/setLang']
         self._admin_commands = ['/set_wallet_a', '/set_wallet_b', '/set_fee', '/set_vote_end_time']
         self._data_keeper = DataKeeper()
-        self._data_keeper.update()
+        self._data_keeper.update_statistics()
         self._sender = Sender(access_token)
         self._ether_scan = EtherScan()
         self._qr_generator = QRGenerator()
 
     def update_rates(self):
-        bets_A = self._data_keeper.count_bets('A')
-        bets_B = self._data_keeper.count_bets('B')
+        bets_A = self._data_keeper.count_confirmed_bets('A')
+        bets_B = self._data_keeper.count_confirmed_bets('B')
 
         fee = self._data_keeper.get_fee()
 

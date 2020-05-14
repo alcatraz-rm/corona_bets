@@ -1,6 +1,7 @@
-import requests
 import json
 import logging
+
+import requests
 
 
 class Sender:
@@ -35,14 +36,12 @@ class Sender:
 
         self._logger.info(f'Answer callback query: {response.json()}')
 
-        self._logger.info(response.json())
-
     def send_photo(self, chat_id, photo, reply_markup=None):
-        if not reply_markup:
-            response = requests.post(self._requests_url + 'sendPhoto', {'chat_id': chat_id, 'photo': photo})
-        else:
+        if reply_markup:
             response = requests.post(self._requests_url + 'sendPhoto', {'chat_id': chat_id, 'photo': photo,
                                                                         'reply_markup': reply_markup})
+        else:
+            response = requests.post(self._requests_url + 'sendPhoto', {'chat_id': chat_id, 'photo': photo})
 
         self._logger.info(response.json())
 
@@ -50,13 +49,9 @@ class Sender:
         if reply_markup:
             response = requests.post(self._requests_url + 'sendMessage',
                                      params={'chat_id': chat_id, 'text': text,
-                                             'reply_markup': reply_markup, 'parse_mode': parse_mode}).json()
+                                             'reply_markup': reply_markup, 'parse_mode': parse_mode})
         else:
             response = requests.post(self._requests_url + 'sendMessage',
-                                     params={'chat_id': chat_id, 'text': text, 'parse_mode': parse_mode}).json()
+                                     params={'chat_id': chat_id, 'text': text, 'parse_mode': parse_mode})
 
-        self._log_telegram_response(response)
-
-
-# TODO: add Telegram answer logger
-
+        self._log_telegram_response(response.json())

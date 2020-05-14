@@ -10,9 +10,7 @@ class Handler(tornado.web.RequestHandler):
         self._sender = sender
 
     def post(self):
-        print(1)
         update = tornado.escape.json_decode(self.request.body)
-        pprint(update)
 
         if update:
             if 'message' in update:
