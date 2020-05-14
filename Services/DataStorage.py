@@ -217,8 +217,3 @@ class DataStorage(metaclass=Singleton):
             return None
 
         return wallet
-
-
-storage = DataStorage()
-print(storage.get_last_wallet(123))
-

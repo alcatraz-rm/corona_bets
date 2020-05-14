@@ -273,7 +273,7 @@ class Engine:
             .replace('{#5}', str(date_))
 
         # users = self._data_keeper.get_users(None)
-        users = self._data_storage.get_users_ids(None)
+        users = self._data_storage.get_users_ids()
         rate = float(rate)
 
         for user in users:
@@ -291,27 +291,33 @@ class Engine:
             if win_amount > 0:
                 self._sender.send(user, f'Ваш выигрыш составляет: {win_amount}')
 
-    def _configure_first_time(self):  # start here
+    def _configure_first_time(self):
         control_value = self._event_parser.update()['day']
-        answer = input(f'Use {control_value} as control value? (y/n)')
+        answer = input(f'Use {control_value} as control value? (y/n): ')
 
         if answer == 'y':
-            self._data_keeper.set_control_value(control_value)
+            # self._data_keeper.set_control_value(control_value)
+            self._data_storage.control_value = control_value
         else:
             control_value = int(input('enter the control value: '))
-            self._data_keeper.set_control_value(control_value)
+            # self._data_keeper.set_control_value(control_value)
+            self._data_storage.control_value = control_value
 
-        bet_amount = self._data_keeper.get_bet_amount()
-        answer = input(f'Use {bet_amount} as bet amount? (y/n)')
+        # bet_amount = self._data_keeper.get_bet_amount()
+        bet_amount = self._data_storage.bet_amount
+        answer = input(f'Use {bet_amount} as bet amount? (y/n): ')
 
         if answer == 'y':
-            self._data_keeper.set_bet_amount(bet_amount)
+            # self._data_keeper.set_bet_amount(bet_amount)
+            self._data_storage.bet_amount = bet_amount
         else:
             bet_amount = float(input('enter the bet amount: '))
-            self._data_keeper.set_bet_amount(bet_amount)
+            # self._data_keeper.set_bet_amount(bet_amount)
+            self._data_storage.bet_amount = bet_amount
 
         fee = float(input('enter the fee: '))
-        self._data_keeper.set_fee(fee)
+        # self._data_keeper.set_fee(fee)
+        self._data_storage.fee = fee
 
         now = datetime.utcnow()
         day, month, year = now.day, now.month, now.year
@@ -320,7 +326,8 @@ class Engine:
         # time limit - 6:00 GMT (9:00 MSK)
         time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
 
-        self._data_keeper.set_time_limit(time_limit)
+        # self._data_keeper.set_time_limit(time_limit)
+        self._data_storage.time_limit = time_limit
 
         self._finish = False
 
@@ -358,10 +365,10 @@ class Engine:
                     update = self._updates_queue.get()
 
             if update and 'bet_id' in update:
-                state = self._data_keeper.get_state(update['chat_id'])
+                # state = self._data_keeper.get_state(update['chat_id'])
+                state = self._data_storage.get_state(update['chat_id'])
 
                 if not state:
-
                     self._sender.send(update['chat_id'], f'Ваш голос подтвержден.\nID: {update["bet_id"]}')
                 else:
                     with self._lock:
@@ -374,8 +381,22 @@ class Engine:
 
                 if 'message' in update:
                     chat_id = update['message']['from']['id']
-                    if self._data_keeper.is_new_user(chat_id):
-                        self._data_keeper.add_user(update)
+
+                    # if self._data_keeper.is_new_user(chat_id):
+                    #     self._data_keeper.add_user(update)
+
+                    if self._data_storage.is_new_user(chat_id):
+                        if 'last_name' in update['message']['from']:
+                            name = f"{update['message']['from']['first_name']} {update['message']['from']['last_name']}"
+                        else:
+                            name = f"{update['message']['from']['first_name']}"
+
+                        if 'username' in update['message']['from']:
+                            login = update['message']['from']['username']
+                        else:
+                            login = None
+
+                        self._data_storage.add_user(name, login, chat_id, 'ru')
 
                     if update['message']['text'].startswith('/'):
                         self._command_handler.handle_command(update, allow_bets)
@@ -384,7 +405,8 @@ class Engine:
 
                 elif 'callback_query' in update:
                     chat_id = update['callback_query']['from']['id']
-                    state = self._data_keeper.get_state(chat_id)
+                    # state = self._data_keeper.get_state(chat_id)
+                    state = self._data_storage.get_state(chat_id)
 
                     if state:
                         self._command_handler.handle_state(chat_id, state, update, allow_bets)
@@ -399,54 +421,56 @@ class Engine:
                 if self._finish:
                     return
 
-            bets = self._data_keeper.get_unconfirmed_bets()
+            # bets = self._data_keeper.get_unconfirmed_bets()
+            bets = self._data_storage.get_unconfirmed_bets()
 
             for bet in bets:
                 chat_id = bet['chat_id']
 
                 for bet_ in bet['bets']:
-                    time.sleep(2)
+                    time.sleep(5)
                     bet_id = bet_['bet_id']
-                    # verify bet insted of sleep
-                    self._data_keeper.confirm_bet(chat_id, bet_id)
+                    # verify bet instead of sleep
+                    # self._data_keeper.confirm_bet(chat_id, bet_id)
+                    self._data_storage.confirm_bet(bet_id)
 
                     with self._lock:
-                        self._command_handler.update_rates()
+                        # self._command_handler.update_rates()
                         self._updates_queue.put({'bet_id': bet_id, 'chat_id': chat_id})
 
-    def launch_hook(self, address):
-        self._logger.info('Launching webhook...')
-        self._logger.debug(address)
-
-        # with open('/etc/letsencrypt/live/vm1139999.hl.had.pm/fullchain.pem', 'r', encoding='utf-8') as cert:
-        #     cert_data = cert.read()
-
-        signal.signal(signal.SIGTERM, self._signal_term_handler)
-
-        try:
-            print(self._requests_url + "setWebhook?url=%s" % address)
-            cert_file = '@/etc/letsencrypt/live/vm1139999.hl.had.pm/fullchain.pem'
-
-            set_hook = requests.get(self._requests_url + "setWebhook",
-                                    params={'url': address, 'certificate': cert_file})
-            # set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
-            pprint(set_hook.json())
-            self._logger.debug(set_hook.json())
-
-            if set_hook.status_code != 200:
-                self._logger.error(f"Can't set hook to address: {address}")
-                exit(1)
-
-            self._logger.info('Start listening...')
-
-            self._application.listen(port=443, address='')
-            tornado.ioloop.IOLoop.current().start()
-
-        except KeyboardInterrupt:
-            self._logger.info('Keyboard interrupt occurred. Deleting webhook...')
-            self._signal_term_handler(signal.SIGTERM, None)
-
-    def _signal_term_handler(self, signum, frame):
-        response = requests.post(self._requests_url + "deleteWebhook")
-        self._logger.debug(response.json())
-        self._logger.info('Webhook was successfully deleted.')
+    # def launch_hook(self, address):
+    #     self._logger.info('Launching webhook...')
+    #     self._logger.debug(address)
+    #
+    #     # with open('/etc/letsencrypt/live/vm1139999.hl.had.pm/fullchain.pem', 'r', encoding='utf-8') as cert:
+    #     #     cert_data = cert.read()
+    #
+    #     signal.signal(signal.SIGTERM, self._signal_term_handler)
+    #
+    #     try:
+    #         print(self._requests_url + "setWebhook?url=%s" % address)
+    #         cert_file = '@/etc/letsencrypt/live/vm1139999.hl.had.pm/fullchain.pem'
+    #
+    #         set_hook = requests.get(self._requests_url + "setWebhook",
+    #                                 params={'url': address, 'certificate': cert_file})
+    #         # set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
+    #         pprint(set_hook.json())
+    #         self._logger.debug(set_hook.json())
+    #
+    #         if set_hook.status_code != 200:
+    #             self._logger.error(f"Can't set hook to address: {address}")
+    #             exit(1)
+    #
+    #         self._logger.info('Start listening...')
+    #
+    #         self._application.listen(port=443, address='')
+    #         tornado.ioloop.IOLoop.current().start()
+    #
+    #     except KeyboardInterrupt:
+    #         self._logger.info('Keyboard interrupt occurred. Deleting webhook...')
+    #         self._signal_term_handler(signal.SIGTERM, None)
+    #
+    # def _signal_term_handler(self, signum, frame):
+    #     response = requests.post(self._requests_url + "deleteWebhook")
+    #     self._logger.debug(response.json())
+    #     self._logger.info('Webhook was successfully deleted.')
