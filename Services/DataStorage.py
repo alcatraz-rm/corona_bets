@@ -12,18 +12,18 @@ class DataStorage(metaclass=Singleton):
         self._logger = logging.getLogger('Engine.DataStorage')
         self._event_parser = EventParser()
 
-        self._event_A_wallet = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-        self._event_B_wallet = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-        self._fee = 0.1
+        self.A_wallet = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        self.B_wallet = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+        self.fee = 0.1
 
-        self._cases_total = None
-        self._cases_day = None
-        self._date = None
+        self.cases_total = None
+        self.cases_day = None
+        self.date = None
 
-        self._control_value = 123
-        self._time_limit = 'time limit here'
+        self.control_value = 123
+        self.time_limit = 'time limit here'
 
-        self._bet_amount = 0.03
+        self.bet_amount = 0.03
 
         # self.responses = self._read_responses()
 
@@ -38,8 +38,8 @@ class DataStorage(metaclass=Singleton):
             self._logger.info("Create database and get cursor.")
 
             self._configure_database_first_time()
-            self._rate_A = 'N/a'
-            self._rate_B = 'N/a'
+            self.rate_A = 'N/a'
+            self.rate_B = 'N/a'
         else:
             self.__connection = sqlite3.connect('user_data.db')
             self.__cursor = self.__connection.cursor()
@@ -59,21 +59,21 @@ class DataStorage(metaclass=Singleton):
         bets_B = self.count_confirmed_bets('B')
 
         if bets_A:
-            self._rate_A = ((bets_A + bets_B) / bets_A) * (1 - self._fee)
+            self.rate_A = ((bets_A + bets_B) / bets_A) * (1 - self.fee)
         else:
-            self._rate_A = 'N/a'
+            self.rate_A = 'N/a'
 
         if bets_B:
-            self._rate_B = ((bets_A + bets_B) / bets_B) * (1 - self._fee)
+            self.rate_B = ((bets_A + bets_B) / bets_B) * (1 - self.fee)
         else:
-            self._rate_B = 'N/a'
+            self.rate_B = 'N/a'
 
     def update_statistics(self):
         data = self._event_parser.update()
 
-        self._cases_total = data['total']
-        self._cases_day = data['day']
-        self._date = data['date']
+        self.cases_total = data['total']
+        self.cases_day = data['day']
+        self.date = data['date']
 
         self._logger.info('Statistics updated.')
 
@@ -163,6 +163,8 @@ class DataStorage(metaclass=Singleton):
         self.__cursor.execute("TRUNCATE TABLE bets")
         self.__cursor.execute("UPDATE users SET state=NULL")
 
+        self.rate_A, self.rate_B = 'N/a', 'N/a'
+
         self.__connection.commit()
 
     def get_bets(self, chat_id):
@@ -189,9 +191,17 @@ class DataStorage(metaclass=Singleton):
 
     def get_state(self, chat_id):
         self.__cursor.execute(f"SELECT state from users WHERE chat_id={chat_id}")
-        return self.__cursor.fetchone()
+        state = self.__cursor.fetchone()[0]
+
+        if state == 'NULL':
+            return None
+
+        return state
 
     def set_state(self, state, chat_id):
+        if not state:
+            state = 'NULL'
+
         self.__cursor.execute(f"UPDATE bets SET state={state} WHERE chat_id={chat_id}")
         self.__connection.commit()
 
@@ -200,9 +210,15 @@ class DataStorage(metaclass=Singleton):
         self.__connection.commit()
 
     def get_last_wallet(self, chat_id):
-        self.__cursor.execute(f"SELECT wallet from bets WHERE chat_id={chat_id}")
+        self.__cursor.execute(f"SELECT wallet from bets WHERE user={chat_id}")
+        wallet = self.__cursor.fetchone()[0]
+
+        if wallet == 'NULL':
+            return None
+
+        return wallet
 
 
 storage = DataStorage()
-print(storage.get_unconfirmed_bets())
+print(storage.get_last_wallet(123))
 

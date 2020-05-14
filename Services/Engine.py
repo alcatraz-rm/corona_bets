@@ -20,6 +20,7 @@ from Services.EtherScan import EtherScan
 from Services.EventParser import EventParser
 from Services.Handler import Handler
 from Services.Sender import Sender
+from Services.DataStorage import DataStorage
 
 
 class Engine:
@@ -34,14 +35,18 @@ class Engine:
         self._event_parser = EventParser()
         self._ether_scan = EtherScan()
         self._sender = Sender(self._access_token)
-        self._data_keeper = DataKeeper()
-        self._data_keeper.update_statistics()
 
-        self._application = tornado.web.Application([
-            (r"/",
-             Handler,
-             dict(data_keeper=self._data_keeper, command_handler=self._command_handler, sender=self._sender)),
-        ])
+        # self._data_keeper = DataKeeper()
+        # self._data_keeper.update_statistics()
+
+        self._data_storage = DataStorage()
+        self._data_storage.update_statistics()
+
+        # self._application = tornado.web.Application([
+        #     (r"/",
+        #      Handler,
+        #      dict(data_keeper=self._data_keeper, command_handler=self._command_handler, sender=self._sender)),
+        # ])
 
         self._updates_queue = Queue()
         self._lock = threading.Lock()
@@ -110,51 +115,6 @@ class Engine:
 
         self._logger.info(f'New update_statistics: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
 
-    def launch_long_polling(self):
-        self._logger.info('Launching long polling...')
-
-        new_offset = None
-
-        try:
-            while True:
-                updates = self._get_updates(new_offset)
-                for update in updates:
-                    # pprint(update_statistics)
-
-                    self._log_update(update)
-
-                    if update:
-                        if 'message' in update:
-                            chat_id = update['message']['from']['id']
-
-                            if self._data_keeper.is_new_user(chat_id):
-                                self._data_keeper.add_user(update)
-
-                            last_update_id = update['update_id']
-
-                            if update['message']['text'].startswith('/'):
-                                self._command_handler.handle_command(update)
-                            else:
-                                self._command_handler.handle_text_message(update)
-
-                            new_offset = last_update_id + 1
-
-                        elif 'callback_query' in update:
-                            last_update_id = update['update_id']
-                            chat_id = update['callback_query']['from']['id']
-                            state = self._data_keeper.get_state(chat_id)
-
-                            if state:
-                                self._command_handler.handle_state(chat_id, state, update)
-                            else:
-                                self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
-
-                            new_offset = last_update_id + 1
-
-        except KeyboardInterrupt:
-            self._logger.info('Keyboard interrupt occurred. Quit.')
-            exit(0)
-
     def launch_long_polling_threads(self):
         self._logger.info('Launching long polling with 2 threads...')
 
@@ -187,8 +147,9 @@ class Engine:
 
             self._logger.debug('Start listening, handling and bets verifying thread threads.')
 
-            time_limit = self._data_keeper.get_time_limit()
-            print(time_limit)
+            # time_limit = self._data_keeper.get_time_limit()
+            time_limit = self._data_storage.time_limit
+
             self._logger.debug(f'time limit: {time_limit}')
 
             while True:
@@ -238,10 +199,12 @@ class Engine:
             self._logger.debug('listening and handling threads (bets are not allowed) joined')
 
             value = self._event_parser.update()['day']
-            control_value = self._data_keeper.get_control_value()
+            # control_value = self._data_keeper.get_control_value()
+            control_value = self._data_storage.control_value
 
-            rate_A, rate_B = self._command_handler.represent_rates(self._data_keeper.get_rate_A(),
-                                                                   self._data_keeper.get_rate_B())
+            # rate_A, rate_B = self._command_handler.represent_rates(self._data_keeper.get_rate_A(),
+            #                                                        self._data_keeper.get_rate_B())
+            rate_A, rate_B = self._command_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
             if value <= control_value:
                 winner = 'A'
@@ -256,7 +219,8 @@ class Engine:
             self._broadcast_new_round_message(winner, rate)
 
     def _configure_new_round(self):
-        self._data_keeper.reset_users()
+        # self._data_keeper.reset_users()
+        self._data_storage.reset_users_bets()
 
         now = datetime.utcnow()
         day, month, year = now.day, now.month, now.year
@@ -267,32 +231,46 @@ class Engine:
 
         control_value = self._event_parser.update()['day']
 
-        self._data_keeper.set_control_value(control_value)
-        self._data_keeper.set_time_limit(time_limit)
-        self._data_keeper.update_statistics()
+        # self._data_keeper.set_control_value(control_value)
+        # self._data_keeper.set_time_limit(time_limit)
+        # self._data_keeper.update_statistics()
+
+        self._data_storage.control_value = control_value
+        self._data_storage.time_limit = time_limit
+        self._data_storage.update_statistics()
 
         self._finish = False
 
     def _broadcast_time_limit_message(self):
+        # users = self._data_keeper.get_users(None)
+        # timeout_message = self._data_keeper.responses['40']
+        #
+        # rate_A, rate_B = self._command_handler.represent_rates(self._data_keeper.get_rate_A(),
+        #                                                        self._data_keeper.get_rate_B())
+
+        chat_ids = self._data_storage.get_users_ids()
+        timeout_message = self._data_storage.responses['40']
+
+        rate_A, rate_B = self._command_handler.represent_rates(self._data_storage.rate_A,
+                                                               self._data_storage.rate_B)
+
+        for chat_id in chat_ids:
+            # lang = user['lang']
+            self._sender.send(chat_id, timeout_message['ru'].replace('{#1}', rate_A).replace('{#2}', rate_B))
+
+    def _broadcast_new_round_message(self, winner, rate):  # start here
+        data = self._event_parser.update()
+        cases_day, cases_all, date_ = data['day'], data['total'], data['date']
+
+        # message = self._data_keeper.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
+        #     .replace('{#3}', str(cases_day)) \
+        #     .replace('{#4}', str(cases_all)) \
+        #     .replace('{#5}', str(date_))
         users = self._data_keeper.get_users(None)
         timeout_message = self._data_keeper.responses['40']
 
         rate_A, rate_B = self._command_handler.represent_rates(self._data_keeper.get_rate_A(),
                                                                self._data_keeper.get_rate_B())
-
-        for user in users:
-            lang = user['lang']
-
-            self._sender.send(user['chat_id'], timeout_message[lang].replace('{#1}', rate_A).replace('{#2}', rate_B))
-
-    def _broadcast_new_round_message(self, winner, rate):
-        data = self._event_parser.update()
-        cases_day, cases_all, date_ = data['day'], data['total'], data['date']
-
-        message = self._data_keeper.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
-            .replace('{#3}', str(cases_day)) \
-            .replace('{#4}', str(cases_all)) \
-            .replace('{#5}', str(date_))
 
         users = self._data_keeper.get_users(None)
         rate = float(rate)
