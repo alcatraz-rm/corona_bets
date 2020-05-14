@@ -1,13 +1,33 @@
 import sqlite3
 import os
 import logging
+import json
 
 from Services.Singleton import Singleton
+from Services.EventParser import EventParser
 
 
 class DataStorage(metaclass=Singleton):
     def __init__(self):
         self._logger = logging.getLogger('Engine.DataStorage')
+        self._event_parser = EventParser()
+
+        self._event_A_wallet = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        self._event_B_wallet = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+        self._fee = 0.1
+
+        self._cases_total = None
+        self._cases_day = None
+        self._date = None
+
+        self._control_value = 123
+        self._time_limit = 'time limit here'
+
+        self._bet_amount = 0.03
+
+        # self.responses = self._read_responses()
+
+        self.update_statistics()
 
         if not os.path.exists('user_data.db'):
             self._logger.warning("Database doesn't exist. Creating new one...")
@@ -18,12 +38,44 @@ class DataStorage(metaclass=Singleton):
             self._logger.info("Create database and get cursor.")
 
             self._configure_database_first_time()
+            self._rate_A = 'N/a'
+            self._rate_B = 'N/a'
         else:
             self.__connection = sqlite3.connect('user_data.db')
             self.__cursor = self.__connection.cursor()
 
+            self._update_rates()
+
         self.__cursor.execute("SELECT * from bets")
-        self._bets_number = len(self.__cursor.fetchall())
+        self._last_bet_id = len(self.__cursor.fetchall())
+
+    @staticmethod
+    def _read_responses():
+        with open("responses.json", 'r', encoding='utf-8') as responses_file:
+            return json.load(responses_file)
+
+    def _update_rates(self):
+        bets_A = self.count_confirmed_bets('A')
+        bets_B = self.count_confirmed_bets('B')
+
+        if bets_A:
+            self._rate_A = ((bets_A + bets_B) / bets_A) * (1 - self._fee)
+        else:
+            self._rate_A = 'N/a'
+
+        if bets_B:
+            self._rate_B = ((bets_A + bets_B) / bets_B) * (1 - self._fee)
+        else:
+            self._rate_B = 'N/a'
+
+    def update_statistics(self):
+        data = self._event_parser.update()
+
+        self._cases_total = data['total']
+        self._cases_day = data['day']
+        self._date = data['date']
+
+        self._logger.info('Statistics updated.')
 
     def _configure_database_first_time(self):
         self._logger.info('Start configuring database.')
@@ -70,9 +122,9 @@ class DataStorage(metaclass=Singleton):
             return None
 
     def add_bet(self, chat_id, category):
-        self._bets_number += 1
+        self._last_bet_id += 1
 
-        self.__cursor.execute(f"INSERT INTO bets values ({self._bets_number}, '{category}', -1, NULL, {chat_id})")
+        self.__cursor.execute(f"INSERT INTO bets values ({self._last_bet_id}, '{category}', -1, NULL, {chat_id})")
         self.__connection.commit()
 
         self._logger.info(f"Add new bet: category - {category}, chat_id - {chat_id}")
@@ -104,7 +156,7 @@ class DataStorage(metaclass=Singleton):
                                  f"chat_id: {chat_id}")
 
     def count_confirmed_bets(self, category):
-        self.__cursor.execute(f"SELECT ID from bets WHERE confirmed=1 AND category={category}")
+        self.__cursor.execute(f"SELECT ID from bets WHERE confirmed=1 AND category='{category}'")
         return len(self.__cursor.fetchall())
 
     def reset_users_bets(self):
@@ -113,13 +165,27 @@ class DataStorage(metaclass=Singleton):
 
         self.__connection.commit()
 
+    def get_bets(self, chat_id):
+        self.__cursor.execute(f"SELECT ID,category,confirmed,wallet from bets WHERE user={chat_id}"
+                              f" AND confirmed=0 OR confirmed=1")
+
+        return [dict(bet_id=bet[0], category=bet[1], confirmed=bet[2], wallet=bet[3])
+                for bet in self.__cursor.fetchall()]
+
+    def get_users_ids(self):
+        self.__cursor.execute(f"SELECT chat_id from users")
+        return [user_id[0] for user_id in self.__cursor.fetchall()]
+
     def get_unconfirmed_bets(self):
         self.__cursor.execute("SELECT ID,category,confirmed,wallet,user from bets WHERE confirmed=0")
-        return self.__cursor.fetchall()
+        return [dict(bet_id=bet[0], category=bet[1], confirmed=bet[2], wallet=bet[3], user=bet[4])
+                for bet in self.__cursor.fetchall()]
 
     def confirm_bet(self, bet_id):
         self.__cursor.execute(f"UPDATE bets SET confirmed=1 WHERE ID={bet_id}")
         self.__connection.commit()
+
+        self._update_rates()
 
     def get_state(self, chat_id):
         self.__cursor.execute(f"SELECT state from users WHERE chat_id={chat_id}")
@@ -135,3 +201,8 @@ class DataStorage(metaclass=Singleton):
 
     def get_last_wallet(self, chat_id):
         self.__cursor.execute(f"SELECT wallet from bets WHERE chat_id={chat_id}")
+
+
+storage = DataStorage()
+print(storage.get_unconfirmed_bets())
+
