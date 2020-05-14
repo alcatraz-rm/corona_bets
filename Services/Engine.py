@@ -1,27 +1,25 @@
-from decimal import Decimal
-
-import requests
+import json
 import logging
-from datetime import datetime, date, timedelta
 import os
 import platform
-import json
 import signal
-import time
-import tornado.web, tornado.escape, tornado.ioloop
-
 import threading
+import time
+from datetime import datetime, date, timedelta
+from pprint import pprint
 from queue import Queue
 
-from pprint import pprint
+import requests
+import tornado.escape
+import tornado.ioloop
+import tornado.web
 
 from Services.CommandHandler import CommandHandler
-from Services.EventParser import EventParser
 from Services.DataKeeper import DataKeeper
-from Services.Sender import Sender
 from Services.EtherScan import EtherScan
-
+from Services.EventParser import EventParser
 from Services.Handler import Handler
+from Services.Sender import Sender
 
 
 class Engine:
@@ -65,7 +63,7 @@ class Engine:
         return requests.get(self._requests_url + 'getUpdates',
                             {'timeout': timeout, 'offset': offset}).json()['result']
 
-    def _log_update(self, update_statistics):
+    def _log_update(self, update):
         log_message = {}
 
         if 'message' in update:
@@ -90,7 +88,7 @@ class Engine:
 
         elif 'callback_query' in update:
             log_message['type'] = 'callback_query'
-            log_message['from'] = {'chat_id':  update['callback_query']['from']['id']}
+            log_message['from'] = {'chat_id': update['callback_query']['from']['id']}
 
             if 'last_name' in update['callback_query']['from']:
                 name = f"{update['callback_query']['from']['first_name']} " \
@@ -214,7 +212,7 @@ class Engine:
             self._broadcast_time_limit_message()
 
             listening_thread = threading.Thread(target=self._listen, daemon=True)
-            handling_thread = threading.Thread(target=self._handle, args=(False, ), daemon=True)
+            handling_thread = threading.Thread(target=self._handle, args=(False,), daemon=True)
 
             self._finish = False
 
@@ -291,10 +289,10 @@ class Engine:
         data = self._event_parser.update()
         cases_day, cases_all, date_ = data['day'], data['total'], data['date']
 
-        message = self._data_keeper.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate))\
-                                                .replace('{#3}', str(cases_day))\
-                                                .replace('{#4}', str(cases_all))\
-                                                .replace('{#5}', str(date_))
+        message = self._data_keeper.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
+            .replace('{#3}', str(cases_day)) \
+            .replace('{#4}', str(cases_all)) \
+            .replace('{#5}', str(date_))
 
         users = self._data_keeper.get_users(None)
         rate = float(rate)
@@ -448,7 +446,8 @@ class Engine:
             print(self._requests_url + "setWebhook?url=%s" % address)
             cert_file = '@/etc/letsencrypt/live/vm1139999.hl.had.pm/fullchain.pem'
 
-            set_hook = requests.get(self._requests_url + "setWebhook", params={'url': address, 'certificate': cert_file})
+            set_hook = requests.get(self._requests_url + "setWebhook",
+                                    params={'url': address, 'certificate': cert_file})
             # set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
             pprint(set_hook.json())
             self._logger.debug(set_hook.json())
