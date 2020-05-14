@@ -258,7 +258,7 @@ class Engine:
             # lang = user['lang']
             self._sender.send(chat_id, timeout_message['ru'].replace('{#1}', rate_A).replace('{#2}', rate_B))
 
-    def _broadcast_new_round_message(self, winner, rate):  # start here
+    def _broadcast_new_round_message(self, winner, rate):
         data = self._event_parser.update()
         cases_day, cases_all, date_ = data['day'], data['total'], data['date']
 
@@ -266,29 +266,32 @@ class Engine:
         #     .replace('{#3}', str(cases_day)) \
         #     .replace('{#4}', str(cases_all)) \
         #     .replace('{#5}', str(date_))
-        users = self._data_keeper.get_users(None)
-        timeout_message = self._data_keeper.responses['40']
 
-        rate_A, rate_B = self._command_handler.represent_rates(self._data_keeper.get_rate_A(),
-                                                               self._data_keeper.get_rate_B())
+        message = self._data_storage.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
+            .replace('{#3}', str(cases_day)) \
+            .replace('{#4}', str(cases_all)) \
+            .replace('{#5}', str(date_))
 
-        users = self._data_keeper.get_users(None)
+        # users = self._data_keeper.get_users(None)
+        users = self._data_storage.get_users_ids(None)
         rate = float(rate)
 
         for user in users:
             win_amount = 0
+            bets = self._data_storage.get_bets(user)
 
-            for bet in user['bets']:
+            for bet in bets:
                 if bet['confirmed'] and bet['category'] == winner:
-                    win_amount += self._data_keeper.get_bet_amount() * rate
+                    # win_amount += self._data_keeper.get_bet_amount() * rate
+                    win_amount += self._data_storage.bet_amount * rate
 
-            self._sender.send(user['chat_id'], message)
-            self._logger.info(f'User {user["name"]} wins {win_amount}')
+            self._sender.send(user, message)
+            self._logger.info(f'User {user} wins {win_amount}')
 
             if win_amount > 0:
-                self._sender.send(user['chat_id'], f'Ваш выигрыш составляет: {win_amount}')
+                self._sender.send(user, f'Ваш выигрыш составляет: {win_amount}')
 
-    def _configure_first_time(self):
+    def _configure_first_time(self):  # start here
         control_value = self._event_parser.update()['day']
         answer = input(f'Use {control_value} as control value? (y/n)')
 
