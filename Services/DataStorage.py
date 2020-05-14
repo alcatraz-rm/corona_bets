@@ -38,7 +38,6 @@ class DataStorage(metaclass=Singleton):
                               "text, user integer, FOREIGN KEY (user) REFERENCES users(chat_id))")
 
         self._logger.info("Create table 'bets'")
-
         self._logger.info('Database was successfully configured.')
 
     def is_new_user(self, chat_id):
@@ -73,7 +72,7 @@ class DataStorage(metaclass=Singleton):
     def add_bet(self, chat_id, category):
         self._bets_number += 1
 
-        self.__cursor.execute(f"INSERT INTO bets values ({self._bets_number}, '{category}', 0, NULL, {chat_id})")
+        self.__cursor.execute(f"INSERT INTO bets values ({self._bets_number}, '{category}', -1, NULL, {chat_id})")
         self.__connection.commit()
 
         self._logger.info(f"Add new bet: category - {category}, chat_id - {chat_id}")
@@ -82,13 +81,15 @@ class DataStorage(metaclass=Singleton):
         last_bet_id = self._get_last_bet_id(chat_id)
 
         if last_bet_id:
-            self.__cursor.execute(f"UPDATE bets SET wallet='{wallet}' WHERE ID={last_bet_id}")
+            self.__cursor.execute(f"UPDATE bets SET wallet='{wallet}' SET confirmed=0 WHERE ID={last_bet_id}")
             self.__connection.commit()
 
             self._logger.info(f"Add wallet {wallet} to last user's bet. chat_id: {chat_id}")
         else:
             self._logger.warning(f"Trying to set wallet {wallet} to last user's bet, but this user doesn't have bets."
                                  f"chat_id: {chat_id}")
+
+        self._set_last_wallet(chat_id, wallet)
 
     def remove_last_bet(self, chat_id):
         last_bet_id = self._get_last_bet_id(chat_id)
@@ -102,10 +103,35 @@ class DataStorage(metaclass=Singleton):
             self._logger.warning(f"Trying to remove last user's bet, but this user doesn't have bets."
                                  f"chat_id: {chat_id}")
 
+    def count_confirmed_bets(self, category):
+        self.__cursor.execute(f"SELECT ID from bets WHERE confirmed=1 AND category={category}")
+        return len(self.__cursor.fetchall())
 
-storage = DataStorage()
-print(storage.is_new_user(123))
-print(storage.add_user("John Doe", "john_doe", 123, "ru"))
-print(storage.is_new_user(123))
+    def reset_users_bets(self):
+        self.__cursor.execute("TRUNCATE TABLE bets")
+        self.__cursor.execute("UPDATE users SET state=NULL")
 
-storage.remove_last_bet(123)
+        self.__connection.commit()
+
+    def get_unconfirmed_bets(self):
+        self.__cursor.execute("SELECT ID,category,confirmed,wallet,user from bets WHERE confirmed=0")
+        return self.__cursor.fetchall()
+
+    def confirm_bet(self, bet_id):
+        self.__cursor.execute(f"UPDATE bets SET confirmed=1 WHERE ID={bet_id}")
+        self.__connection.commit()
+
+    def get_state(self, chat_id):
+        self.__cursor.execute(f"SELECT state from users WHERE chat_id={chat_id}")
+        return self.__cursor.fetchone()
+
+    def set_state(self, state, chat_id):
+        self.__cursor.execute(f"UPDATE bets SET state={state} WHERE chat_id={chat_id}")
+        self.__connection.commit()
+
+    def _set_last_wallet(self, chat_id, wallet):
+        self.__cursor.execute(f"UPDATE users SET wallet='{wallet}' WHERE chat_id={chat_id}")
+        self.__connection.commit()
+
+    def get_last_wallet(self, chat_id):
+        self.__cursor.execute(f"SELECT wallet from bets WHERE chat_id={chat_id}")

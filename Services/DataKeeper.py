@@ -58,7 +58,7 @@ class DataKeeper(metaclass=Singleton):
     def set_control_value(self, control_value):
         self._control_value = control_value
 
-    def remove_last_bet(self, chat_id):
+    def remove_last_bet(self, chat_id):  # Implemented in DataStorage
         for n in range(len(self._users)):
             if self._users[n]['chat_id'] == chat_id:
                 del (self._users[n]['bets'][-1])
@@ -88,7 +88,7 @@ class DataKeeper(metaclass=Singleton):
         else:
             return self._users
 
-    def count_confirmed_bets(self, category):
+    def count_confirmed_bets(self, category):  # Implemented in DataStorage
         result = 0
 
         for user in self._users:
@@ -98,7 +98,7 @@ class DataKeeper(metaclass=Singleton):
 
         return result
 
-    def reset_users(self):
+    def reset_users(self):  # Implemented in DataStorage
         for n in range(len(self._users)):
             self._users[n]['state'] = None
             self._users[n]['bets'] = []
@@ -108,7 +108,7 @@ class DataKeeper(metaclass=Singleton):
         self._rate_A, self._rate_B = 'N/a', 'N/a'
         self._logger.info('Users and rates were reset.')
 
-    def get_unconfirmed_bets(self):
+    def get_unconfirmed_bets(self):  # Implemented in DataStorage
         result = []
 
         for user in self._users:
@@ -120,7 +120,7 @@ class DataKeeper(metaclass=Singleton):
 
         return result
 
-    def confirm_bet(self, chat_id, bet_id):
+    def confirm_bet(self, chat_id, bet_id):  # Implemented in DataStorage
         for n, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 for k, bet in enumerate(self._users[n]['bets']):
@@ -136,35 +136,35 @@ class DataKeeper(metaclass=Singleton):
         self._cases_day = data['day']
         self._date = data['date']
 
-        self._logger.info('Event updated.')
+        self._logger.info('Statistics updated.')
 
-    def is_new_user(self, chat_id):
+    def is_new_user(self, chat_id):  # Implemented in DataStorage
         for user in self._users:
             if user['chat_id'] == chat_id:
                 return False
 
         return True
 
-    def get_state(self, chat_id):
+    def get_state(self, chat_id):  # Implemented in DataStorage
         for index, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 return user['state']
 
-    def set_state(self, new_state, chat_id):
+    def set_state(self, new_state, chat_id):  # Implemented in DataStorage
         for index, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 self._users[index]['state'] = new_state
                 self._commit()
                 return
 
-    def set_wallet(self, new_wallet_id, chat_id):
+    def set_wallet(self, new_wallet_id, chat_id):  # Implemented in DataStorage
         for index, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 self._users[index]['wallet'] = new_wallet_id
                 self._commit()
                 return
 
-    def add_user(self, message):
+    def add_user(self, message):  # Implemented in DataStorage
         if 'last_name' in message['message']['from']:
             name = f"{message['message']['from']['first_name']} {message['message']['from']['last_name']}"
         else:
@@ -183,7 +183,7 @@ class DataKeeper(metaclass=Singleton):
         self._commit()
         self._logger.info(f'Add new user: {name}, {chat_id}')
 
-    def add_bet(self, chat_id, category):
+    def add_bet(self, chat_id, category):  # Implemented in DataStorage
         for n, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 self._users[n]['bets'].append({'category': category,
@@ -194,11 +194,11 @@ class DataKeeper(metaclass=Singleton):
                 self._last_id += 1
                 return
 
-    def _commit(self):
+    def _commit(self):  # Implemented in DataStorage
         with open("users.json", "w", encoding="utf-8") as users_file:
             json.dump(self._users, users_file, indent=4, ensure_ascii=False)
 
-    def add_wallet_to_last_bet(self, chat_id, wallet):
+    def add_wallet_to_last_bet(self, chat_id, wallet):  # Implemented in DataStorage
         for n, user in enumerate(self._users):
             if user['chat_id'] == chat_id:
                 self._users[n]['bets'][-1]['wallet'] = wallet
@@ -238,7 +238,7 @@ class DataKeeper(metaclass=Singleton):
     def set_fee(self, fee):
         self._fee = fee
 
-    def get_wallet(self, chat_id):
+    def get_wallet(self, chat_id):  # Implemented in DataStorage
         for user in self._users:
             if user['chat_id'] == chat_id:
                 return user['wallet']
