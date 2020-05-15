@@ -2,25 +2,18 @@ import json
 import logging
 import os
 import platform
-import signal
 import threading
 import time
 from datetime import datetime, date, timedelta
-from pprint import pprint
 from queue import Queue
 
 import requests
-import tornado.escape
-import tornado.ioloop
-import tornado.web
 
 from Services.CommandHandler import CommandHandler
-from Services.DataKeeper import DataKeeper
+from Services.DataStorage import DataStorage
 from Services.EtherScan import EtherScan
 from Services.EventParser import EventParser
-from Services.Handler import Handler
 from Services.Sender import Sender
-from Services.DataStorage import DataStorage
 
 
 class Engine:
@@ -277,7 +270,7 @@ class Engine:
         rate = float(rate)
 
         for user in users:
-            win_amount = 0
+            win_amount = 0.0
             bets = self._data_storage.get_bets(user)
 
             for bet in bets:
@@ -286,7 +279,7 @@ class Engine:
                     win_amount += self._data_storage.bet_amount * rate
 
             self._sender.send(user, message)
-            self._logger.info(f'User {user} wins {win_amount}')
+            self._logger.info(f'User {user} wins {win_amount}.')
 
             if win_amount > 0:
                 self._sender.send(user, f'Ваш выигрыш составляет: {win_amount}')
@@ -309,7 +302,7 @@ class Engine:
 
         if answer == 'y':
             # self._data_keeper.set_bet_amount(bet_amount)
-            self._data_storage.bet_amount = bet_amount
+            pass
         else:
             bet_amount = float(input('enter the bet amount: '))
             # self._data_keeper.set_bet_amount(bet_amount)

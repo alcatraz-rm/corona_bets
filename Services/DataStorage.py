@@ -1,10 +1,10 @@
-import sqlite3
-import os
-import logging
 import json
+import logging
+import os
+import sqlite3
 
-from Services.Singleton import Singleton
 from Services.EventParser import EventParser
+from Services.Singleton import Singleton
 
 
 class DataStorage(metaclass=Singleton):
@@ -25,7 +25,7 @@ class DataStorage(metaclass=Singleton):
 
         self.bet_amount = 0.03
 
-        # self.responses = self._read_responses()
+        self.responses = self._read_responses()
 
         self.update_statistics()
 
