@@ -29,17 +29,8 @@ class Engine:
         self._ether_scan = EtherScan()
         self._sender = Sender(self._access_token)
 
-        # self._data_keeper = DataKeeper()
-        # self._data_keeper.update_statistics()
-
         self._data_storage = DataStorage()
         self._data_storage.update_statistics()
-
-        # self._application = tornado.web.Application([
-        #     (r"/",
-        #      Handler,
-        #      dict(data_keeper=self._data_keeper, command_handler=self._command_handler, sender=self._sender)),
-        # ])
 
         self._updates_queue = Queue()
         self._lock = threading.Lock()
@@ -124,15 +115,12 @@ class Engine:
             print('Keyboard interrupt. Quit.')
 
     def process(self):
-        # TODO: check how data update_statistics during all process
-        # TODO: create new thread for waiting and verifying payments
-
         self._configure_first_time()
 
         while True:
             listening_thread = threading.Thread(target=self._listen, daemon=True)
             handling_thread = threading.Thread(target=self._handle, daemon=True)
-            verify_bets_thread = threading.Thread(target=self._verify_bets, daemon=True)
+            verify_bets_thread = threading.Thread(target=self._confirming_bets, daemon=True)
 
             listening_thread.start()
             handling_thread.start()
@@ -140,7 +128,6 @@ class Engine:
 
             self._logger.debug('Start listening, handling and bets verifying thread threads.')
 
-            # time_limit = self._data_keeper.get_time_limit()
             time_limit = self._data_storage.time_limit
 
             self._logger.debug(f'time limit: {time_limit}')
@@ -192,11 +179,8 @@ class Engine:
             self._logger.debug('listening and handling threads (bets are not allowed) joined')
 
             value = self._event_parser.update()['day']
-            # control_value = self._data_keeper.get_control_value()
             control_value = self._data_storage.control_value
 
-            # rate_A, rate_B = self._command_handler.represent_rates(self._data_keeper.get_rate_A(),
-            #                                                        self._data_keeper.get_rate_B())
             rate_A, rate_B = self._command_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
             if value <= control_value:
@@ -212,7 +196,6 @@ class Engine:
             self._broadcast_new_round_message(winner, rate)
 
     def _configure_new_round(self):
-        # self._data_keeper.reset_users()
         self._data_storage.reset_users_bets()
 
         now = datetime.utcnow()
@@ -224,10 +207,6 @@ class Engine:
 
         control_value = self._event_parser.update()['day']
 
-        # self._data_keeper.set_control_value(control_value)
-        # self._data_keeper.set_time_limit(time_limit)
-        # self._data_keeper.update_statistics()
-
         self._data_storage.control_value = control_value
         self._data_storage.time_limit = time_limit
         self._data_storage.update_statistics()
@@ -235,12 +214,6 @@ class Engine:
         self._finish = False
 
     def _broadcast_time_limit_message(self):
-        # users = self._data_keeper.get_users(None)
-        # timeout_message = self._data_keeper.responses['40']
-        #
-        # rate_A, rate_B = self._command_handler.represent_rates(self._data_keeper.get_rate_A(),
-        #                                                        self._data_keeper.get_rate_B())
-
         chat_ids = self._data_storage.get_users_ids()
         timeout_message = self._data_storage.responses['40']
 
@@ -248,24 +221,17 @@ class Engine:
                                                                self._data_storage.rate_B)
 
         for chat_id in chat_ids:
-            # lang = user['lang']
             self._sender.send(chat_id, timeout_message['ru'].replace('{#1}', rate_A).replace('{#2}', rate_B))
 
     def _broadcast_new_round_message(self, winner, rate):
         data = self._event_parser.update()
         cases_day, cases_all, date_ = data['day'], data['total'], data['date']
 
-        # message = self._data_keeper.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
-        #     .replace('{#3}', str(cases_day)) \
-        #     .replace('{#4}', str(cases_all)) \
-        #     .replace('{#5}', str(date_))
-
         message = self._data_storage.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
             .replace('{#3}', str(cases_day)) \
             .replace('{#4}', str(cases_all)) \
             .replace('{#5}', str(date_))
 
-        # users = self._data_keeper.get_users(None)
         users = self._data_storage.get_users_ids()
         rate = float(rate)
 
@@ -275,7 +241,6 @@ class Engine:
 
             for bet in bets:
                 if bet['confirmed'] and bet['category'] == winner:
-                    # win_amount += self._data_keeper.get_bet_amount() * rate
                     win_amount += self._data_storage.bet_amount * rate
 
             self._sender.send(user, message)
@@ -289,27 +254,21 @@ class Engine:
         answer = input(f'Use {control_value} as control value? (y/n): ')
 
         if answer == 'y':
-            # self._data_keeper.set_control_value(control_value)
             self._data_storage.control_value = control_value
         else:
             control_value = int(input('enter the control value: '))
-            # self._data_keeper.set_control_value(control_value)
             self._data_storage.control_value = control_value
 
-        # bet_amount = self._data_keeper.get_bet_amount()
         bet_amount = self._data_storage.bet_amount
         answer = input(f'Use {bet_amount} as bet amount? (y/n): ')
 
         if answer == 'y':
-            # self._data_keeper.set_bet_amount(bet_amount)
             pass
         else:
             bet_amount = float(input('enter the bet amount: '))
-            # self._data_keeper.set_bet_amount(bet_amount)
             self._data_storage.bet_amount = bet_amount
 
         fee = float(input('enter the fee: '))
-        # self._data_keeper.set_fee(fee)
         self._data_storage.fee = fee
 
         now = datetime.utcnow()
@@ -318,9 +277,7 @@ class Engine:
 
         # time limit - 6:00 GMT (9:00 MSK)
         time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
-        # time_limit = datetime.now() + timedelta(minutes=5)
 
-        # self._data_keeper.set_time_limit(time_limit)
         self._data_storage.time_limit = time_limit
 
         self._finish = False
@@ -359,7 +316,6 @@ class Engine:
                     update = self._updates_queue.get()
 
             if update and 'bet_id' in update:
-                # state = self._data_keeper.get_state(update['chat_id'])
                 state = self._data_storage.get_state(update['chat_id'])
 
                 if not state:
@@ -375,9 +331,6 @@ class Engine:
 
                 if 'message' in update:
                     chat_id = update['message']['from']['id']
-
-                    # if self._data_keeper.is_new_user(chat_id):
-                    #     self._data_keeper.add_user(update)
 
                     if self._data_storage.is_new_user(chat_id):
                         if 'last_name' in update['message']['from']:
@@ -399,7 +352,6 @@ class Engine:
 
                 elif 'callback_query' in update:
                     chat_id = update['callback_query']['from']['id']
-                    # state = self._data_keeper.get_state(chat_id)
                     state = self._data_storage.get_state(chat_id)
 
                     if state:
@@ -409,13 +361,12 @@ class Engine:
 
                 print('end handling new update')
 
-    def _verify_bets(self):
+    def _confirming_bets(self):
         while True:
             with self._lock:
                 if self._finish:
                     return
 
-            # bets = self._data_keeper.get_unconfirmed_bets()
             bets = self._data_storage.get_unconfirmed_bets()
 
             for bet in bets:
@@ -423,47 +374,7 @@ class Engine:
 
                 time.sleep(5)
                 bet_id = bet['bet_id']
-                # verify bet instead of sleep
-                # self._data_keeper.confirm_bet(chat_id, bet_id)
                 self._data_storage.confirm_bet(bet_id)
 
                 with self._lock:
-                    # self._command_handler.update_rates()
                     self._updates_queue.put({'bet_id': bet_id, 'chat_id': chat_id})
-
-    # def launch_hook(self, address):
-    #     self._logger.info('Launching webhook...')
-    #     self._logger.debug(address)
-    #
-    #     # with open('/etc/letsencrypt/live/vm1139999.hl.had.pm/fullchain.pem', 'r', encoding='utf-8') as cert:
-    #     #     cert_data = cert.read()
-    #
-    #     signal.signal(signal.SIGTERM, self._signal_term_handler)
-    #
-    #     try:
-    #         print(self._requests_url + "setWebhook?url=%s" % address)
-    #         cert_file = '@/etc/letsencrypt/live/vm1139999.hl.had.pm/fullchain.pem'
-    #
-    #         set_hook = requests.get(self._requests_url + "setWebhook",
-    #                                 params={'url': address, 'certificate': cert_file})
-    #         # set_hook = requests.get(self._requests_url + "setWebhook?url=%s" % address)
-    #         pprint(set_hook.json())
-    #         self._logger.debug(set_hook.json())
-    #
-    #         if set_hook.status_code != 200:
-    #             self._logger.error(f"Can't set hook to address: {address}")
-    #             exit(1)
-    #
-    #         self._logger.info('Start listening...')
-    #
-    #         self._application.listen(port=443, address='')
-    #         tornado.ioloop.IOLoop.current().start()
-    #
-    #     except KeyboardInterrupt:
-    #         self._logger.info('Keyboard interrupt occurred. Deleting webhook...')
-    #         self._signal_term_handler(signal.SIGTERM, None)
-    #
-    # def _signal_term_handler(self, signum, frame):
-    #     response = requests.post(self._requests_url + "deleteWebhook")
-    #     self._logger.debug(response.json())
-    #     self._logger.info('Webhook was successfully deleted.')
