@@ -1,9 +1,7 @@
 import json
-from decimal import Decimal
 from datetime import timedelta
 import math
 
-from Services.DataKeeper import DataKeeper
 from Services.Sender import Sender
 from Services.EtherScan import EtherScan
 from Services.QRGenerator import QRGenerator
@@ -25,7 +23,9 @@ class CommandHandler:
         # self._data_keeper = DataKeeper()
         self._data_storage = DataStorage()
 
-        self._data_keeper.update_statistics()
+        # self._data_keeper.update_statistics()
+        self._data_storage.update_statistics()
+
         self._sender = Sender(access_token)
         self._ether_scan = EtherScan()
         self._qr_generator = QRGenerator()
@@ -42,6 +42,7 @@ class CommandHandler:
 
         # state = self._data_keeper.get_state(chat_id)
         state = self._data_storage.get_state(chat_id)
+        print(state)
 
         if state:
             self.handle_state(chat_id, state, message_object, allow_bets)
@@ -151,9 +152,10 @@ class CommandHandler:
                 # message_1 = self._data_keeper.responses['39']['ru'].replace('{#1}', category) \
                 #     .replace('{#2}', str(self._data_keeper.get_bet_amount())) \
                 #     .replace('{#3}', f'{self._data_keeper.get_time_limit()} GMT')
+
                 message_1 = self._data_storage.responses['39']['ru'].replace('{#1}', category) \
-                    .replace('{#2}', str(self._data_keeper.get_bet_amount())) \
-                    .replace('{#3}', f'{self._data_keeper.get_time_limit()} GMT')
+                    .replace('{#2}', str(self._data_storage.bet_amount)) \
+                    .replace('{#3}', f'{self._data_storage.time_limit} GMT')
 
                 self._sender.send(chat_id, message_1)
 
@@ -204,6 +206,7 @@ class CommandHandler:
                                           [{'text': '/help'}]
                                       ],
                                       'resize_keyboard': True}))
+                return
 
             else:
                 # self._data_keeper.set_state(None, chat_id)
@@ -314,10 +317,20 @@ class CommandHandler:
                     return
 
                 elif use_previous_wallet == 1:
-                    self._data_keeper.add_wallet_to_last_bet(chat_id, self._data_keeper.get_wallet(chat_id))
+                    # self._data_keeper.add_wallet_to_last_bet(chat_id, self._data_keeper.get_wallet(chat_id))
+                    self._data_storage.add_wallet_to_last_bet(chat_id, self._data_storage.get_last_wallet(chat_id))
                     self._sender.answer_callback_query(chat_id, callback_query_id, None)
 
-                    self._sender.send(chat_id, self._data_keeper.responses['10']['ru'],
+                    # self._sender.send(chat_id, self._data_keeper.responses['10']['ru'],
+                    #                   reply_markup=json.dumps({'keyboard':
+                    #                       [
+                    #                           [{'text': '/how_many'}, {'text': '/bet'}],
+                    #                           [{'text': '/current_round'}, {'text': '/status'}],
+                    #                           [{'text': '/help'}]
+                    #                       ],
+                    #                       'resize_keyboard': True}))
+
+                    self._sender.send(chat_id, self._data_storage.responses['10']['ru'],
                                       reply_markup=json.dumps({'keyboard':
                                           [
                                               [{'text': '/how_many'}, {'text': '/bet'}],
@@ -425,7 +438,6 @@ class CommandHandler:
         rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
         # self._data_keeper.set_state(None, chat_id)
-        self._data_storage.set_state(None, chat_id)
 
         # announcement = self._data_keeper.responses['38']['ru'] \
         #     .replace('{#1}', str(self._data_keeper.get_date())) \

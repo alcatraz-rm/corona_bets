@@ -318,6 +318,7 @@ class Engine:
 
         # time limit - 6:00 GMT (9:00 MSK)
         time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
+        # time_limit = datetime.now() + timedelta(minutes=5)
 
         # self._data_keeper.set_time_limit(time_limit)
         self._data_storage.time_limit = time_limit
@@ -338,7 +339,7 @@ class Engine:
 
             for update in updates:
                 self._log_update(update)
-                print('write new update_statistics to queue')
+                print('write new update to queue')
                 last_update_id = update['update_id']
 
                 with self._lock:
@@ -370,7 +371,7 @@ class Engine:
                 continue
 
             if update:
-                print('start handling new update_statistics')
+                print('start handling new update')
 
                 if 'message' in update:
                     chat_id = update['message']['from']['id']
@@ -406,7 +407,7 @@ class Engine:
                     else:
                         self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
 
-                print('end handling new update_statistics')
+                print('end handling new update')
 
     def _verify_bets(self):
         while True:
@@ -420,16 +421,15 @@ class Engine:
             for bet in bets:
                 chat_id = bet['chat_id']
 
-                for bet_ in bet['bets']:
-                    time.sleep(5)
-                    bet_id = bet_['bet_id']
-                    # verify bet instead of sleep
-                    # self._data_keeper.confirm_bet(chat_id, bet_id)
-                    self._data_storage.confirm_bet(bet_id)
+                time.sleep(5)
+                bet_id = bet['bet_id']
+                # verify bet instead of sleep
+                # self._data_keeper.confirm_bet(chat_id, bet_id)
+                self._data_storage.confirm_bet(bet_id)
 
-                    with self._lock:
-                        # self._command_handler.update_rates()
-                        self._updates_queue.put({'bet_id': bet_id, 'chat_id': chat_id})
+                with self._lock:
+                    # self._command_handler.update_rates()
+                    self._updates_queue.put({'bet_id': bet_id, 'chat_id': chat_id})
 
     # def launch_hook(self, address):
     #     self._logger.info('Launching webhook...')
