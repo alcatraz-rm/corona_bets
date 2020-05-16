@@ -48,7 +48,7 @@ class Engine:
         self._logger.info(f'Platform: {platform.system().lower()}')
         self._logger.info(f'WD: {os.getcwd()}')
 
-    def _get_updates(self, offset=None, timeout=10):
+    def _get_updates(self, offset=None, timeout=10): # try to change timeout
         return requests.get(self._requests_url + 'getUpdates',
                             {'timeout': timeout, 'offset': offset}).json()['result']
 
@@ -135,7 +135,7 @@ class Engine:
             while True:
                 remaining_time = (time_limit - datetime.utcnow()).total_seconds()
 
-                if remaining_time <= 0:
+                if remaining_time <= 5:
                     with self._lock:
                         self._finish = True
                     break
@@ -172,6 +172,8 @@ class Engine:
                     break
 
                 time.sleep(300)
+            # time.sleep(60)  # for test
+            # self._finish = True  # for test
 
             listening_thread.join()
             handling_thread.join()
@@ -179,6 +181,8 @@ class Engine:
             self._logger.debug('listening and handling threads (bets are not allowed) joined')
 
             value = self._event_parser.update()['day']
+            # value = self._event_parser.update()['day'] + 1  # for test
+
             control_value = self._data_storage.control_value
 
             rate_A, rate_B = self._command_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
@@ -192,8 +196,8 @@ class Engine:
 
             #  pay here or write messages about that in channel, etc.
 
-            self._configure_new_round()
             self._broadcast_new_round_message(winner, rate)
+            self._configure_new_round()
 
     def _configure_new_round(self):
         self._data_storage.reset_users_bets()
@@ -277,6 +281,7 @@ class Engine:
 
         # time limit - 6:00 GMT (9:00 MSK)
         time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
+        # time_limit = datetime.utcnow() + timedelta(minutes=2)  # for test
 
         self._data_storage.time_limit = time_limit
 

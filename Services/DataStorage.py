@@ -183,17 +183,18 @@ class DataStorage(metaclass=Singleton):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
 
-            cursor.execute("TRUNCATE TABLE bets")
+            cursor.execute("DELETE FROM bets")
             cursor.execute("UPDATE users SET state=NULL")
             connection.commit()
 
         self.rate_A, self.rate_B = 'N/a', 'N/a'
+        self._last_bet_id = 0
 
     def get_bets(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
             cursor.execute(f"SELECT ID,category,confirmed,wallet from bets WHERE user={chat_id}"
-                           f" AND confirmed=0 OR confirmed=1")
+                           f" AND confirmed!=-1")
 
             return [dict(bet_id=bet[0], category=bet[1], confirmed=bet[2], wallet=bet[3])
                     for bet in cursor.fetchall()]

@@ -19,6 +19,9 @@ class EtherScan:
 
         return True
 
+    def _get_transactions(self):
+        pass
+
     def check_transaction(self):
         pass
         # HINT: to check transaction we can get this page: https://etherscan.io/address/{address} and parse it

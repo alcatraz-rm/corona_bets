@@ -103,50 +103,157 @@ class CommandHandler:
             self._sender.send(chat_id, 'Извините, время для участия в текущей игре вышло.')
             return
 
-        if state == 'bet_0':
-            if 'callback_query' in message:
-                category = message['callback_query']['data']
+        if state == 'wait_choice':
+            self._handle_choice(chat_id, message)
+
+        elif state == 'wait_choice_after_qr':
+            self._handle_choice_after_qr(chat_id, message)
+
+        elif state == 'use_previous_wallet?':
+            self._handle_wallet_choice(chat_id, message)
+
+        elif state == 'wait_wallet':
+            self._handle_wallet(chat_id, message)
+
+    def _handle_wallet_choice(self, chat_id, message):
+        if 'callback_query' in message:
+            use_previous_wallet = int(message['callback_query']['data'])
+            callback_query_id = message['callback_query']['id']
+
+            if use_previous_wallet == -1:
+                self._data_storage.remove_last_bet(chat_id)
+
+                self._sender.answer_callback_query(chat_id, callback_query_id, None)
+                self._sender.send(chat_id, 'Действие отменено.', reply_markup=json.dumps({'keyboard':
+                    [
+                        [{'text': '/how_many'}, {'text': '/bet'}],
+                        [{'text': '/current_round'}, {'text': '/status'}],
+                        [{'text': '/help'}]
+                    ],
+                    'resize_keyboard': True}))
+                self._data_storage.set_state(None, chat_id)
+                return
+
+            elif use_previous_wallet == 1:
+                self._data_storage.add_wallet_to_last_bet(chat_id, self._data_storage.get_last_wallet(chat_id))
+                self._sender.answer_callback_query(chat_id, callback_query_id, None)
+
+                self._sender.send(chat_id, self._data_storage.responses['10']['ru'],
+                                  reply_markup=json.dumps({'keyboard':
+                                      [
+                                          [{'text': '/how_many'}, {'text': '/bet'}],
+                                          [{'text': '/current_round'}, {'text': '/status'}],
+                                          [{'text': '/help'}]
+                                      ],
+                                      'resize_keyboard': True}))
+
+                self._data_storage.set_state(None, chat_id)
+
+                # TODO: check payment and verify (or not) user's vote
+
+            else:
+                self._sender.answer_callback_query(chat_id, callback_query_id, '')
+                self._data_storage.set_state('wait_wallet', chat_id)
+
+                message = self._data_storage.responses['11']['ru']
+
+                self._sender.send(chat_id, message,
+                                  reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
+                                                           'resize_keyboard': True}))
+
+        elif 'message' in message and message['message']['text'] == 'Отменить':
+            self._sender.send(chat_id, 'Действие отменено.')
+
+            self._data_storage.remove_last_bet(chat_id)
+            self._data_storage.set_state(None, chat_id)
+
+        else:
+            self._data_storage.remove_last_bet(chat_id)
+            self._data_storage.set_state(None, chat_id)
+
+            self._sender.send(chat_id, 'Я, к сожалению, умею выполнять только команды ниже :)\nВсегда можешь '
+                                       'посмотреть, что я умею по команде /help.',
+                              reply_markup=json.dumps({'keyboard':
+                                  [
+                                      [{'text': '/how_many'}, {'text': '/bet'}],
+                                      [{'text': '/current_round'}, {'text': '/status'}],
+                                      [{'text': '/help'}]
+                                  ],
+                                  'resize_keyboard': True}))
+            return
+
+    def _handle_wallet(self, chat_id, message):
+        wallet = message['message']['text']
+
+        if wallet == 'Отменить':
+            self._data_storage.remove_last_bet(chat_id)
+            self._data_storage.set_state(None, chat_id)
+
+            self._sender.send(chat_id, 'Действие отменено.',
+                              reply_markup=json.dumps({'keyboard':
+                                  [
+                                      [{'text': '/how_many'}, {'text': '/bet'}],
+                                      [{'text': '/current_round'}, {'text': '/status'}],
+                                      [{'text': '/help'}]
+                                  ],
+                                  'resize_keyboard': True}))
+            return
+
+        if not self._ether_scan.wallet_is_correct(wallet):
+            message = self._data_storage.responses['22']['ru']
+
+            self._sender.send(chat_id, message)
+            return
+
+        self._data_storage.add_wallet_to_last_bet(chat_id, wallet)
+        self._data_storage.set_state(None, chat_id)
+
+        success_message = self._data_storage.responses['12']['ru']
+
+        self._sender.send(chat_id, success_message,
+                          reply_markup=json.dumps({'keyboard':
+                              [
+                                  [{'text': '/how_many'}, {'text': '/bet'}],
+                                  [{'text': '/current_round'}, {'text': '/status'}],
+                                  [{'text': '/help'}]
+                              ],
+                              'resize_keyboard': True}))
+
+        # TODO: check payment and verify (or not) user's vote
+
+    def _handle_choice_after_qr(self, chat_id, message):
+        if 'callback_query' in message:
+            if message['callback_query']['data'] == 'next':
                 callback_query_id = message['callback_query']['id']
-                self._data_storage.add_bet(chat_id, category)
+                self._sender.answer_callback_query(chat_id, callback_query_id, '')
 
-                self._sender.answer_callback_query(chat_id, callback_query_id, self._data_storage.responses['5']['ru']
-                                                   .replace('{#1}', category))
+                wallet = self._data_storage.get_last_wallet(chat_id)
 
-                message_1 = self._data_storage.responses['39']['ru'].replace('{#1}', category) \
-                    .replace('{#2}', str(self._data_storage.bet_amount)) \
-                    .replace('{#3}', f'{self._data_storage.time_limit} GMT')
+                if not wallet:
+                    message_2 = self._data_storage.responses['7']['ru']
 
-                self._sender.send(chat_id, message_1)
+                    self._sender.send(chat_id, message_2,
+                                      reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
+                                                               'resize_keyboard': True}))
 
-                if category == 'A':
-                    self._sender.send(chat_id, self._data_storage.A_wallet,
-                                      reply_markup=json.dumps({'hide_keyboard': True}))
+                    self._data_storage.set_state('wait_wallet', chat_id)
+                else:
+                    message_2 = self._data_storage.responses['20']['ru'].replace('{#1}', wallet)
 
-                    qr_link = self._qr_generator.generate_qr(self._data_storage.A_wallet)
+                    keyboard = [[{'text': self._data_storage.responses['8']['ru'], 'callback_data': 1},
+                                 {'text': self._data_storage.responses['9']['ru'], 'callback_data': 0}],
+                                [{'text': 'Отменить', 'callback_data': -1}]]
 
-                    self._sender.send_photo(chat_id, qr_link,
-                                            reply_markup=json.dumps({'inline_keyboard': [[{'text': 'Далее',
-                                                                                           'callback_data': 'next'},
-                                                                                          {'text': 'Отменить',
-                                                                                           'callback_data': 'reject'}]],
-                                                                     'resize_keyboard': True}))
+                    self._sender.send(chat_id, message_2, reply_markup=json.dumps({'inline_keyboard': keyboard,
+                                                                                   'resize_keyboard': True}))
+                    self._data_storage.set_state('use_previous_wallet?', chat_id)
 
-                elif category == 'B':
-                    self._sender.send(chat_id, self._data_storage.B_wallet,
-                                      reply_markup=json.dumps({'hide_keyboard': True}))
+            elif message['callback_query']['data'] == 'reject':
+                callback_query_id = message['callback_query']['id']
 
-                    qr_link = self._qr_generator.generate_qr(self._data_storage.B_wallet)
+                self._sender.answer_callback_query(chat_id, callback_query_id, '')
 
-                    self._sender.send_photo(chat_id, qr_link,
-                                            reply_markup=json.dumps({'inline_keyboard': [[{'text': 'Далее',
-                                                                                           'callback_data': 'next'},
-                                                                                          {'text': 'Отменить',
-                                                                                           'callback_data': 'reject'}]],
-                                                                     'resize_keyboard': True}))
-
-                self._data_storage.set_state('bet_3', chat_id)
-
-            elif 'message' in message and message['message']['text'] == 'Отменить':
+                self._data_storage.remove_last_bet(chat_id)
                 self._data_storage.set_state(None, chat_id)
 
                 self._sender.send(chat_id, 'Действие отменено.',
@@ -157,9 +264,8 @@ class CommandHandler:
                                           [{'text': '/help'}]
                                       ],
                                       'resize_keyboard': True}))
-                return
-
             else:
+                self._data_storage.remove_last_bet(chat_id)
                 self._data_storage.set_state(None, chat_id)
 
                 self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
@@ -173,162 +279,11 @@ class CommandHandler:
                                       'resize_keyboard': True}))
                 return
 
-        elif state == 'bet_3':
-            if 'callback_query' in message:
-                if message['callback_query']['data'] == 'next':
-                    callback_query_id = message['callback_query']['id']
-                    self._sender.answer_callback_query(chat_id, callback_query_id, '')
-
-                    wallet = self._data_storage.get_last_wallet(chat_id)
-
-                    if not wallet:
-                        message_2 = self._data_storage.responses['7']['ru']
-
-                        self._sender.send(chat_id, message_2,
-                                          reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
-                                                                   'resize_keyboard': True}))
-
-                        self._data_storage.set_state('bet_2', chat_id)
-                    else:
-                        message_2 = self._data_storage.responses['20']['ru'].replace('{#1}', wallet)
-
-                        button_A = {'text': self._data_storage.responses['8']['ru'], 'callback_data': 1}
-                        button_B = {'text': self._data_storage.responses['9']['ru'], 'callback_data': 0}
-
-                        keyboard = [[button_A, button_B], [{'text': 'Отменить', 'callback_data': -1}]]
-
-                        self._sender.send(chat_id, message_2, reply_markup=json.dumps({'inline_keyboard': keyboard,
-                                                                                       'resize_keyboard': True}))
-                        self._data_storage.set_state('bet_1', chat_id)
-
-                elif message['callback_query']['data'] == 'reject':
-                    callback_query_id = message['callback_query']['id']
-
-                    self._sender.answer_callback_query(chat_id, callback_query_id, '')
-
-                    self._data_storage.remove_last_bet(chat_id)
-                    self._data_storage.set_state(None, chat_id)
-
-                    self._sender.send(chat_id, 'Действие отменено.',
-                                      reply_markup=json.dumps({'keyboard':
-                                          [
-                                              [{'text': '/how_many'}, {'text': '/bet'}],
-                                              [{'text': '/current_round'}, {'text': '/status'}],
-                                              [{'text': '/help'}]
-                                          ],
-                                          'resize_keyboard': True}))
-                else:
-                    self._data_storage.remove_last_bet(chat_id)
-                    self._data_storage.set_state(None, chat_id)
-
-                    self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
-                                               'но могу действовать в соответствии со своими командами',
-                                      reply_markup=json.dumps({'keyboard':
-                                          [
-                                              [{'text': '/how_many'}, {'text': '/bet'}],
-                                              [{'text': '/current_round'}, {'text': '/status'}],
-                                              [{'text': '/help'}]
-                                          ],
-                                          'resize_keyboard': True}))
-                    return
-
-        elif state == 'bet_1':
-            if 'callback_query' in message:
-                use_previous_wallet = int(message['callback_query']['data'])
-                callback_query_id = message['callback_query']['id']
-
-                if use_previous_wallet == -1:
-                    self._data_storage.remove_last_bet(chat_id)
-
-                    self._sender.answer_callback_query(chat_id, callback_query_id, None)
-                    self._sender.send(chat_id, 'Действие отменено.', reply_markup=json.dumps({'keyboard':
-                        [
-                            [{'text': '/how_many'}, {'text': '/bet'}],
-                            [{'text': '/current_round'}, {'text': '/status'}],
-                            [{'text': '/help'}]
-                        ],
-                        'resize_keyboard': True}))
-                    self._data_storage.set_state(None, chat_id)
-                    return
-
-                elif use_previous_wallet == 1:
-                    self._data_storage.add_wallet_to_last_bet(chat_id, self._data_storage.get_last_wallet(chat_id))
-                    self._sender.answer_callback_query(chat_id, callback_query_id, None)
-
-                    self._sender.send(chat_id, self._data_storage.responses['10']['ru'],
-                                      reply_markup=json.dumps({'keyboard':
-                                          [
-                                              [{'text': '/how_many'}, {'text': '/bet'}],
-                                              [{'text': '/current_round'}, {'text': '/status'}],
-                                              [{'text': '/help'}]
-                                          ],
-                                          'resize_keyboard': True}))
-
-                    self._data_storage.set_state(None, chat_id)
-
-                    # TODO: check payment and verify (or not) user's vote
-
-                else:
-                    self._sender.answer_callback_query(chat_id, callback_query_id, '')
-                    self._data_storage.set_state('bet_2', chat_id)
-
-                    message = self._data_storage.responses['11']['ru']
-
-                    self._sender.send(chat_id, message,
-                                      reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
-                                                               'resize_keyboard': True}))
-
-            elif 'message' in message and message['message']['text'] == 'Отменить':
-                self._sender.send(chat_id, 'Действие отменено.')
-
-                self._data_storage.remove_last_bet(chat_id)
-                self._data_storage.set_state(None, chat_id)
-
-            else:
-                self._data_storage.remove_last_bet(chat_id)
-                self._data_storage.set_state(None, chat_id)
-
-                self._sender.send(chat_id, 'Я, к сожалению, умею выполнять только команды ниже :)\nВсегда можешь '
-                                           'посмотреть, что я умею по команде /help.',
-                                  reply_markup=json.dumps({'keyboard':
-                                      [
-                                          [{'text': '/how_many'}, {'text': '/bet'}],
-                                          [{'text': '/current_round'}, {'text': '/status'}],
-                                          [{'text': '/help'}]
-                                      ],
-                                      'resize_keyboard': True}))
-                return
-
-        elif state == 'bet_2':
-            wallet = message['message']['text']
-
-            if wallet == 'Отменить':
-                self._data_storage.remove_last_bet(chat_id)
-                self._data_storage.set_state(None, chat_id)
-
-                self._sender.send(chat_id, 'Действие отменено.',
-                                  reply_markup=json.dumps({'keyboard':
-                                      [
-                                          [{'text': '/how_many'}, {'text': '/bet'}],
-                                          [{'text': '/current_round'}, {'text': '/status'}],
-                                          [{'text': '/help'}]
-                                      ],
-                                      'resize_keyboard': True}))
-                return
-
-            if not self._ether_scan.wallet_is_correct(wallet):
-                message = self._data_storage.responses['22']['ru']
-
-                self._sender.send(chat_id, message)
-                return
-
-            self._data_storage.add_wallet_to_last_bet(chat_id, wallet)
-
+        else:
             self._data_storage.set_state(None, chat_id)
 
-            success_message = self._data_storage.responses['12']['ru']
-
-            self._sender.send(chat_id, success_message,
+            self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
+                                       'но могу действовать в соответствии со своими командами',
                               reply_markup=json.dumps({'keyboard':
                                   [
                                       [{'text': '/how_many'}, {'text': '/bet'}],
@@ -336,8 +291,66 @@ class CommandHandler:
                                       [{'text': '/help'}]
                                   ],
                                   'resize_keyboard': True}))
+            return
 
-            # TODO: check payment and verify (or not) user's vote
+    def _handle_choice(self, chat_id, message):
+        if 'callback_query' in message:
+            category = message['callback_query']['data']
+            callback_query_id = message['callback_query']['id']
+            self._data_storage.add_bet(chat_id, category)
+
+            self._sender.answer_callback_query(chat_id, callback_query_id, self._data_storage.responses['5']['ru']
+                                               .replace('{#1}', category))
+
+            choice_message = self._data_storage.responses['39']['ru'].replace('{#1}', category) \
+                .replace('{#2}', str(self._data_storage.bet_amount)) \
+                .replace('{#3}', f'{self._data_storage.time_limit} GMT')
+
+            self._sender.send(chat_id, choice_message)
+
+            if category == 'A':
+                wallet = self._data_storage.A_wallet
+                qr_link = self._qr_generator.generate_qr(self._data_storage.A_wallet)
+            else:
+                wallet = self._data_storage.B_wallet
+                qr_link = self._qr_generator.generate_qr(self._data_storage.B_wallet)
+
+            self._sender.send(chat_id, wallet, reply_markup=json.dumps({'hide_keyboard': True}))
+            self._sender.send_photo(chat_id, qr_link,
+                                    reply_markup=json.dumps({'inline_keyboard': [[{'text': 'Далее',
+                                                                                   'callback_data': 'next'},
+                                                                                  {'text': 'Отменить',
+                                                                                   'callback_data': 'reject'}]],
+                                                             'resize_keyboard': True}))
+
+            self._data_storage.set_state('wait_choice_after_qr', chat_id)
+
+        elif 'message' in message and message['message']['text'] == 'Отменить':
+            self._data_storage.set_state(None, chat_id)
+
+            self._sender.send(chat_id, 'Действие отменено.',
+                              reply_markup=json.dumps({'keyboard':
+                                  [
+                                      [{'text': '/how_many'}, {'text': '/bet'}],
+                                      [{'text': '/current_round'}, {'text': '/status'}],
+                                      [{'text': '/help'}]
+                                  ],
+                                  'resize_keyboard': True}))
+            return
+
+        else:
+            self._data_storage.set_state(None, chat_id)
+
+            self._sender.send(chat_id, 'Не понимаю, что нужно сделать, '
+                                       'но могу действовать в соответствии со своими командами',
+                              reply_markup=json.dumps({'keyboard':
+                                  [
+                                      [{'text': '/how_many'}, {'text': '/bet'}],
+                                      [{'text': '/current_round'}, {'text': '/status'}],
+                                      [{'text': '/help'}]
+                                  ],
+                                  'resize_keyboard': True}))
+            return
 
     def _bet(self, command_object):
         chat_id = command_object['message']['from']['id']
@@ -361,7 +374,7 @@ class CommandHandler:
                           reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
                                                    'resize_keyboard': True}))
 
-        self._data_storage.set_state('bet_0', chat_id)
+        self._data_storage.set_state('wait_choice', chat_id)
 
     @staticmethod
     def represent_rates(rate_A, rate_B):
@@ -430,7 +443,7 @@ class CommandHandler:
             .replace('{#2}', str(control_value + 1)) \
             .replace('{#3}', rate_A) \
             .replace('{#4}', rate_B) \
-            .replace('{#5}', str(self._data_storage.time_limit))
+            .replace('{#5}', f"{self._data_storage.time_limit} GMT")
 
         self._sender.send(chat_id, message,
                           reply_markup=json.dumps({'keyboard':
