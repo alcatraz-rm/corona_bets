@@ -48,7 +48,7 @@ class Engine:
         self._logger.info(f'Platform: {platform.system().lower()}')
         self._logger.info(f'WD: {os.getcwd()}')
 
-    def _get_updates(self, offset=None, timeout=10): # try to change timeout
+    def _get_updates(self, offset=None, timeout=30):  # try to change timeout
         return requests.get(self._requests_url + 'getUpdates',
                             {'timeout': timeout, 'offset': offset}).json()['result']
 
@@ -251,7 +251,7 @@ class Engine:
             self._logger.info(f'User {user} wins {win_amount}.')
 
             if win_amount > 0:
-                self._sender.send(user, f'Ваш выигрыш составляет: {win_amount}')
+                self._sender.send(user, f'Ваш выигрыш составляет: {win_amount} ETH')
 
     def _configure_first_time(self):
         control_value = self._event_parser.update()['day']

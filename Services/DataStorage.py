@@ -251,7 +251,7 @@ class DataStorage(metaclass=Singleton):
     def get_last_wallet(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute(f"SELECT wallet from bets WHERE user={chat_id}")
+            cursor.execute(f"SELECT wallet from users WHERE user={chat_id}")
             wallet = cursor.fetchone()[0]
 
         if wallet == 'NULL':
