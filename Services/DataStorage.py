@@ -28,34 +28,36 @@ class DataStorage(metaclass=Singleton):
         self.bet_amount = 0.03
 
         self.responses = self._read_responses()
-
         self.update_statistics()
 
-        if not os.path.exists(self.__database_name):
+        if os.path.exists(self.__database_name):
+            self._update_rates()
+        else:
             self._logger.warning("Database doesn't exist. Creating new one...")
 
             connection = sqlite3.connect(self.__database_name)
             connection.close()
 
-            self._logger.info("Create database.")
+            self._logger.info('Create database.')
 
             self._configure_database_first_time()
             self.rate_A = 'N/a'
             self.rate_B = 'N/a'
-        else:
-            # self.__connection = sqlite3.connect('user_data.db')
-            # self.__cursor = self.__connection.cursor()
-
-            self._update_rates()
 
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute("SELECT * from bets")
+            cursor.execute('SELECT * from bets')
             self._last_bet_id = len(cursor.fetchall())
+
+        self.basic_keyboard = json.dumps({'keyboard': [
+                                                [{'text': '/how_many'}, {'text': '/bet'}],
+                                                [{'text': '/current_round'}, {'text': '/status'}],
+                                                [{'text': '/help'}]],
+                                          'resize_keyboard': True})
 
     @staticmethod
     def _read_responses():
-        with open("responses.json", 'r', encoding='utf-8') as responses_file:
+        with open('responses.json', 'r', encoding='utf-8') as responses_file:
             return json.load(responses_file)
 
     def _update_rates(self):
@@ -73,35 +75,36 @@ class DataStorage(metaclass=Singleton):
             self.rate_B = 'N/a'
 
     def update_statistics(self):
-        data = self._event_parser.update()
+        statistics = self._event_parser.update()
 
-        self.cases_total = data['total']
-        self.cases_day = data['day']
-        self.date = data['date']
+        self.cases_total = statistics['total']
+        self.cases_day = statistics['day']
+        self.date = statistics['date']
 
         self._logger.info('Statistics updated.')
 
     def _configure_database_first_time(self):
         self._logger.info('Start configuring database.')
+
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute("PRAGMA foreign_keys=on")
+            cursor.execute('PRAGMA foreign_keys=on')
 
-            cursor.execute("CREATE TABLE users (name text, login text, chat_id integer PRIMARY KEY, "
-                           "state text, wallet text, lang text)")
+            cursor.execute('CREATE TABLE users (name text, login text, chat_id integer PRIMARY KEY, '
+                           'state text, wallet text, lang text)')
 
-            self._logger.info("Create table 'users'.")
+            self._logger.info('Create table "users".')
 
-            cursor.execute("CREATE TABLE bets (ID integer PRIMARY KEY, category text, confirmed integer, wallet "
-                           "text, user integer, FOREIGN KEY (user) REFERENCES users(chat_id))")
+            cursor.execute('CREATE TABLE bets (ID integer PRIMARY KEY, category text, confirmed integer, wallet '
+                           'text, user integer, FOREIGN KEY (user) REFERENCES users(chat_id))')
 
-        self._logger.info("Create table 'bets'")
+        self._logger.info('Create table "bets"')
         self._logger.info('Database was successfully configured.')
 
     def is_new_user(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute(f"SELECT EXISTS(SELECT chat_id FROM users WHERE chat_id = {chat_id})")
+            cursor.execute(f'SELECT EXISTS(SELECT chat_id FROM users WHERE chat_id = {chat_id})')
             result = cursor.fetchall()
 
         if not result[0][0]:
@@ -119,17 +122,17 @@ class DataStorage(metaclass=Singleton):
 
             connection.commit()
 
-        self._logger.info(f"Add new user: name - {name}, login - {login}, chat_id - {chat_id}, lang - {lang}")
+        self._logger.info(f'Add new user: name - {name}, login - {login}, chat_id - {chat_id}, lang - {lang}')
 
     def _get_last_bet_id(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
 
-            cursor.execute(f"SELECT ID from bets where user={chat_id}")
-            bets_ids = cursor.fetchall()
+            cursor.execute(f'SELECT ID from bets where user={chat_id} and confirmed=-1')
+            bet_id_list = cursor.fetchall()
 
-            if bets_ids:
-                return max(bets_ids, key=lambda x: x[0])[0]
+            if bet_id_list:
+                return max(bet_id_list, key=lambda x: x[0])[0]
             else:
                 return None
 
@@ -141,7 +144,7 @@ class DataStorage(metaclass=Singleton):
             cursor.execute(f"INSERT INTO bets values ({self._last_bet_id}, '{category}', -1, NULL, {chat_id})")
             connection.commit()
 
-        self._logger.info(f"Add new bet: category - {category}, chat_id - {chat_id}")
+        self._logger.info(f'Add new bet: category - {category}, chat_id - {chat_id}')
 
     def add_wallet_to_last_bet(self, chat_id, wallet):
         last_bet_id = self._get_last_bet_id(chat_id)
@@ -165,7 +168,7 @@ class DataStorage(metaclass=Singleton):
         if last_bet_id:
             with sqlite3.connect(self.__database_name) as connection:
                 cursor = connection.cursor()
-                cursor.execute(f"Delete from bets WHERE ID={last_bet_id}")
+                cursor.execute(f'Delete from bets WHERE ID={last_bet_id}')
                 connection.commit()
 
             self._logger.info(f"Remove last user's bet. chat_id: {chat_id}, bet_id: {last_bet_id}")
@@ -179,82 +182,84 @@ class DataStorage(metaclass=Singleton):
             cursor.execute(f"SELECT ID from bets WHERE confirmed=1 AND category='{category}'")
             return len(cursor.fetchall())
 
-    def reset_users_bets(self):
+    def reset_bets(self):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
 
-            cursor.execute("DELETE FROM bets")
-            cursor.execute("UPDATE users SET state=NULL")
+            cursor.execute('DELETE FROM bets')
+            cursor.execute('UPDATE users SET state=NULL')
             connection.commit()
 
         self.rate_A, self.rate_B = 'N/a', 'N/a'
         self._last_bet_id = 0
 
-    def get_bets(self, chat_id):
+    def get_user_bets(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute(f"SELECT ID,category,confirmed,wallet from bets WHERE user={chat_id}"
-                           f" AND confirmed!=-1")
+            cursor.execute(f'SELECT ID,category,confirmed,wallet from bets WHERE user={chat_id}'
+                           f' AND confirmed!=-1')
 
             return [dict(bet_id=bet[0], category=bet[1], confirmed=bet[2], wallet=bet[3])
                     for bet in cursor.fetchall()]
 
-    def get_users_ids(self):
+    def get_users_ids_list(self):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute(f"SELECT chat_id from users")
+            cursor.execute('SELECT chat_id from users')
             return [user_id[0] for user_id in cursor.fetchall()]
 
-    def get_unconfirmed_bets(self):
+    def get_unconfirmed_bets_list(self):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute("SELECT ID,category,confirmed,wallet,user from bets WHERE confirmed=0")
+            cursor.execute('SELECT ID,category,confirmed,wallet,user from bets WHERE confirmed=0')
             return [dict(bet_id=bet[0], category=bet[1], confirmed=bet[2], wallet=bet[3], chat_id=bet[4])
                     for bet in cursor.fetchall()]
 
     def confirm_bet(self, bet_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute(f"UPDATE bets SET confirmed=1 WHERE ID={bet_id}")
+            cursor.execute(f'UPDATE bets SET confirmed=1 WHERE ID={bet_id}')
             connection.commit()
 
         self._update_rates()
 
-    def get_state(self, chat_id):
+    def get_user_state(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute(f"SELECT state from users WHERE chat_id={chat_id}")
-            state = cursor.fetchone()
+            cursor.execute(f'SELECT state from users WHERE chat_id={chat_id}')
+            user_state = cursor.fetchone()
 
-            if state:
-                if state[0] == "NULL":
+            if user_state:
+                if user_state[0] == 'NULL':
                     return None
-                return state[0]
-            else:
-                return None
+                return user_state[0]
 
-    def set_state(self, state, chat_id):
+    def set_user_state(self, new_state, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            if not state:
-                cursor.execute(f"UPDATE users SET state=NULL WHERE chat_id={chat_id}")
+
+            if not new_state:
+                cursor.execute(f'UPDATE users SET state=NULL WHERE chat_id={chat_id}')
             else:
-                cursor.execute(f"UPDATE users SET state='{state}' WHERE chat_id={chat_id}")
+                cursor.execute(f"UPDATE users SET state='{new_state}' WHERE chat_id={chat_id}")
+
             connection.commit()
 
     def _set_last_wallet(self, chat_id, wallet):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
             cursor.execute(f"UPDATE users SET wallet='{wallet}' WHERE chat_id={chat_id}")
+
             connection.commit()
 
     def get_last_wallet(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute(f"SELECT wallet from users WHERE chat_id={chat_id}")
+            cursor.execute(f'SELECT wallet from users WHERE chat_id={chat_id}')
+
             wallet = cursor.fetchone()[0]
 
         if wallet == 'NULL':
-            return None
+            wallet = None
 
         return wallet

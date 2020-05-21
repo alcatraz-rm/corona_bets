@@ -29,10 +29,10 @@ class Handler(tornado.web.RequestHandler):
             elif 'callback_query' in update:
                 # last_update_id = update['update_id']
                 chat_id = update['callback_query']['from']['id']
-                state = self._data_keeper.get_state(chat_id)
+                state = self._data_keeper.get_user_state(chat_id)
 
                 if state:
-                    self._command_handler.handle_state(chat_id, state, update)
+                    self._command_handler.handle_user_state(chat_id, state, update)
                 else:
                     self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
 

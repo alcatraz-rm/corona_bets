@@ -45,7 +45,7 @@ class Sender:
 
         self._logger.info(response.json())
 
-    def send(self, chat_id, text, reply_markup=None, parse_mode='HTML'):
+    def send_message(self, chat_id, text, reply_markup=None, parse_mode='HTML'):
         if reply_markup:
             response = requests.post(self._requests_url + 'sendMessage',
                                      params={'chat_id': chat_id, 'text': text,

@@ -8,6 +8,7 @@ class EtherScan:
     def __init__(self):
         self._requests_url = 'http://api.etherscan.io/api'
         self._api_key = 'XJZ6BA37G1DG5MVJQQ4Z6SBRAK6FXCWMB1'
+        self._qr_url = 'https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=#&choe=UTF-8'
 
     @staticmethod
     def wallet_is_correct(wallet):
@@ -22,6 +23,9 @@ class EtherScan:
                 return False
 
         return True
+
+    def get_qr_link(self, wallet):
+        return self._qr_url.replace('#', wallet)
 
     def _get_transactions(self, address):
         params = {'module': 'account', 'action': 'txlist', 'address': address, 'start_block': 0,
