@@ -4,7 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 
 
-class EventParser:
+class StatisticsParser:
     def __init__(self):
         self._event_url = 'https://xn--80aesfpebagmfblc0a.xn--p1ai/'
         self._date_selector = '#operational-data > div.cv-banner__left > div'
@@ -22,9 +22,7 @@ class EventParser:
                 'date': self._parse_date(soup.select(self._date_selector)[0].text)}
 
     def event_check(self, control_value):
-        data = self.update()
-
-        return data['day'] != control_value
+        return self.update()['day'] != control_value
 
     @staticmethod
     def _parse_date(date):

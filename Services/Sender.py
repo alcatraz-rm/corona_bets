@@ -5,11 +5,9 @@ import requests
 
 
 class Sender:
-    def __init__(self, access_token):
+    def __init__(self, telegram_access_token):
         self._logger = logging.getLogger('Engine.Sender')
-
-        self._access_token = access_token
-        self._requests_url = f'https://api.telegram.org/bot{access_token}/'
+        self._requests_url = f'https://api.telegram.org/bot{telegram_access_token}/'
 
         self._logger.info('Sender initialized.')
 
@@ -34,7 +32,7 @@ class Sender:
             response = requests.post(self._requests_url + 'answerCallbackQuery',
                                      {'chat_id': chat_id, 'callback_query_id': callback_query_id})
 
-        self._logger.info(f'Answer callback query: {response.json()}')
+        self._logger.info(f'Response for answer callback query: {response.json()}')
 
     def send_photo(self, chat_id, photo, reply_markup=None):
         if reply_markup:

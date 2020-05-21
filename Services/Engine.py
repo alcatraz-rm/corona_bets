@@ -14,7 +14,7 @@ import requests
 from Services.CommandHandler import CommandHandler
 from Services.DataStorage import DataStorage
 from Services.EtherScan import EtherScan
-from Services.EventParser import EventParser
+from Services.StatisticsParser import StatisticsParser
 from Services.Sender import Sender
 
 
@@ -23,13 +23,12 @@ class Engine:
         self._logger = logging.getLogger('Engine')
         self._configure_logger()
 
-        self._telegram_access_token = telegram_access_token
         self._requests_url = f'https://api.telegram.org/bot{telegram_access_token}/'
 
-        self._command_handler = CommandHandler(self._telegram_access_token)
-        self._event_parser = EventParser()
+        self._command_handler = CommandHandler(telegram_access_token)
+        self._statistics_parser = StatisticsParser()
         self._ether_scan = EtherScan()
-        self._sender = Sender(self._telegram_access_token)
+        self._sender = Sender(telegram_access_token)
 
         self._data_storage = DataStorage()
         self._data_storage.update_statistics()
@@ -147,10 +146,10 @@ class Engine:
 
             self._logger.debug('Start listening and handling threads (bets are not allowed).')
 
-            last_update_time = self._event_parser.update()['date']
+            last_update_time = self._statistics_parser.update()['date']
 
             while True:
-                date_ = self._event_parser.update()['date']
+                date_ = self._statistics_parser.update()['date']
 
                 if date_ != last_update_time:
                     self._threads_end_flag = True
@@ -224,7 +223,7 @@ class Engine:
                                           f'Ваш выигрыш составляет: {str(math.trunc(win_amount * 1000) / 1000)} ETH')
 
     def _configure_first_time(self):
-        control_value = self._event_parser.update()['day']
+        control_value = self._statistics_parser.update()['day']
         answer = input(f'Use {control_value} as control value? (y/n): ')
 
         if answer == 'y':

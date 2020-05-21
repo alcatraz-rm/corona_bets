@@ -3,7 +3,7 @@ import logging
 import os
 import sqlite3
 
-from Services.EventParser import EventParser
+from Services.StatisticsParser import StatisticsParser
 from Services.Singleton import Singleton
 
 
@@ -12,7 +12,7 @@ class DataStorage(metaclass=Singleton):
         self._logger = logging.getLogger('Engine.DataStorage')
         self.__database_name = 'user_data.db'
 
-        self._event_parser = EventParser()
+        self._statistics_parser = StatisticsParser()
 
         self.A_wallet = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
         self.B_wallet = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -75,7 +75,7 @@ class DataStorage(metaclass=Singleton):
             self.rate_B = 'N/a'
 
     def update_statistics(self):
-        statistics = self._event_parser.update()
+        statistics = self._statistics_parser.update()
 
         self.cases_total = statistics['total']
         self.cases_day = statistics['day']

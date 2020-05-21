@@ -8,14 +8,14 @@ from Services.DataStorage import DataStorage
 
 
 class CommandHandler:
-    def __init__(self, access_token):
+    def __init__(self, telegram_access_token):
         self._info_command_types = ['/start', '/help', '/how_many', '/current_round', '/status']
         self._action_command_types = ['/bet']
         self._admin_commands = ['/set_wallet_a', '/set_wallet_b', '/set_fee', '/set_vote_end_time']
 
         self._data_storage = DataStorage()
 
-        self._sender = Sender(access_token)
+        self._sender = Sender(telegram_access_token)
         self._ether_scan = EtherScan()
 
     def handle_text_message(self, message, bets_allowed=True):
@@ -141,7 +141,7 @@ class CommandHandler:
         if 'callback_query' in message:
             if message['callback_query']['data'] == 'next':
                 callback_query_id = message['callback_query']['id']
-                self._sender.answer_callback_query(chat_id, callback_query_id, '')
+                self._sender.answer_callback_query(chat_id, callback_query_id, None)
 
                 wallet = self._data_storage.get_last_wallet(chat_id)
 
@@ -169,7 +169,7 @@ class CommandHandler:
                     self._data_storage.set_user_state('wait_wallet', chat_id)
 
             elif message['callback_query']['data'] == 'reject':
-                self._sender.answer_callback_query(chat_id, message['callback_query']['id'], '')
+                self._sender.answer_callback_query(chat_id, message['callback_query']['id'], None)
 
                 self._cancel_bet_process(chat_id, 'Действие отменено.')
             else:
