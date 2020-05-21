@@ -7,7 +7,7 @@ from Services.EtherScan import EtherScan
 from Services.DataStorage import DataStorage
 
 
-class CommandHandler:
+class UpdateHandler:
     def __init__(self, telegram_access_token):
         self._info_command_types = ['/start', '/help', '/how_many', '/current_round', '/status']
         self._action_command_types = ['/bet']
@@ -223,13 +223,13 @@ class CommandHandler:
         rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
         announcement = self._data_storage.responses['38']['ru'] \
-            .replace('{#1}', str(self._data_storage.date)) \
-            .replace('{#2}', str(self._data_storage.cases_day)) \
-            .replace('{#3}', str(self._data_storage.control_value)) \
-            .replace('{#4}', str(self._data_storage.control_value + 1)) \
-            .replace('{#5}', rate_A) \
-            .replace('{#6}', rate_B) \
-            .replace('{#7}', f'{self._data_storage.time_limit} GMT')
+            .replace('{#1}', str(self._data_storage.cases_day)) \
+            .replace('{#4}', str(self._data_storage.control_value)) \
+            .replace('{#2}', rate_A) \
+            .replace('{#3}', rate_B)\
+            .replace('{#5}', str(self._data_storage.control_value + 1))\
+            .replace('{#7}', str(self._data_storage.bet_amount))\
+            .replace('{#6}', str(self._data_storage.time_limit))
 
         self._sender.send_message(chat_id, announcement, reply_markup=json.dumps({'inline_keyboard': [
             [{'text': 'A', 'callback_data': 'A'},
@@ -262,6 +262,13 @@ class CommandHandler:
 
     def _handle_help_command(self, chat_id):
         message = self._data_storage.responses['36']['ru']
+
+        message = message.replace('{#1}', str(self._data_storage.control_value))\
+                         .replace('{#2}', self._data_storage.control_value + 1)\
+                         .replace('{#3}', str(self._data_storage.rate_A))\
+                         .replace('{#4}', str(self._data_storage.rate_B))\
+                         .replace('{#5}', str(self._data_storage.bet_amount))\
+                         .replace('{#6}', str(self._data_storage.time_limit))
 
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
 

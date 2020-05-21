@@ -11,7 +11,7 @@ from queue import Queue
 
 import requests
 
-from Services.CommandHandler import CommandHandler
+from Services.UpdateHandler import UpdateHandler
 from Services.DataStorage import DataStorage
 from Services.EtherScan import EtherScan
 from Services.StatisticsParser import StatisticsParser
@@ -25,7 +25,7 @@ class Engine:
 
         self._requests_url = f'https://api.telegram.org/bot{telegram_access_token}/'
 
-        self._command_handler = CommandHandler(telegram_access_token)
+        self._update_handler = UpdateHandler(telegram_access_token)
         self._statistics_parser = StatisticsParser()
         self._ether_scan = EtherScan()
         self._sender = Sender(telegram_access_token)
@@ -165,7 +165,7 @@ class Engine:
             new_control_value = self._data_storage.cases_day
             self._data_storage.update_statistics()
 
-            rate_A, rate_B = self._command_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+            rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
             if self._data_storage.cases_day <= self._data_storage.control_value:
                 winner = 'A'
@@ -191,7 +191,7 @@ class Engine:
 
     def _broadcast_time_limit_message(self):
         users_ids_list = self._data_storage.get_users_ids_list()
-        rate_A, rate_B = self._command_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+        rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
         timeout_message = self._data_storage.responses['40']['ru'].replace('{#1}', rate_A).replace('{#2}', rate_B)
 
@@ -294,9 +294,9 @@ class Engine:
             self._data_storage.add_user(name, login, chat_id, 'ru')
 
         if message['message']['text'].startswith('/'):
-            self._command_handler.handle_command(message, bets_allowed)
+            self._update_handler.handle_command(message, bets_allowed)
         else:
-            self._command_handler.handle_text_message(message)
+            self._update_handler.handle_text_message(message)
 
     def _handle_bet_verifying_update(self, update):
         state = self._data_storage.get_user_state(update['chat_id'])
@@ -312,7 +312,7 @@ class Engine:
         state = self._data_storage.get_user_state(chat_id)
 
         if state:
-            self._command_handler.handle_user_state(chat_id, state, update, bets_allowed)
+            self._update_handler.handle_user_state(chat_id, state, update, bets_allowed)
         else:
             self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
 
