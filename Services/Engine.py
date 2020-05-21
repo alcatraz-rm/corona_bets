@@ -5,6 +5,7 @@ import os
 import platform
 import threading
 import time
+from copy import deepcopy
 from datetime import datetime, date, timedelta
 from queue import Queue
 
@@ -18,17 +19,17 @@ from Services.Sender import Sender
 
 
 class Engine:
-    def __init__(self, access_token):
+    def __init__(self, telegram_access_token):
         self._logger = logging.getLogger('Engine')
         self._configure_logger()
 
-        self._access_token = access_token
-        self._requests_url = f'https://api.telegram.org/bot{access_token}/'
+        self._telegram_access_token = telegram_access_token
+        self._requests_url = f'https://api.telegram.org/bot{telegram_access_token}/'
 
-        self._command_handler = CommandHandler(self._access_token)
+        self._command_handler = CommandHandler(self._telegram_access_token)
         self._event_parser = EventParser()
         self._ether_scan = EtherScan()
-        self._sender = Sender(self._access_token)
+        self._sender = Sender(self._telegram_access_token)
 
         self._data_storage = DataStorage()
         self._data_storage.update_statistics()
@@ -42,7 +43,7 @@ class Engine:
     def _configure_logger(self):
         self._logger.setLevel(logging.DEBUG)
 
-        file_handler = logging.FileHandler("log.log", "w", "utf-8")
+        file_handler = logging.FileHandler('log.log', 'w', 'utf-8')
         file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self._logger.addHandler(file_handler)
 
@@ -101,59 +102,43 @@ class Engine:
         else:
             self._logger.warning(f'Get new update (unknown type): {json.dumps(update, indent=4, ensure_ascii=False)}')
 
-    def launch_long_polling_threads(self):
-        self._logger.info('Launching long polling with 2 threads...')
+    def _wait(self):
+        while True:
+            remaining_time = (self._data_storage.time_limit - datetime.utcnow()).total_seconds()
 
-        try:
-            self._threads_end_flag = False
-            listening_thread = threading.Thread(target=self._listen, daemon=True)
-            handling_thread = threading.Thread(target=self._handle, daemon=True)
+            if remaining_time <= 5:
+                with self._lock:
+                    self._threads_end_flag = True
+                return
 
-            listening_thread.start()
-            handling_thread.start()
+            if remaining_time // 2 > 3:
+                time.sleep(remaining_time // 2)
+            else:
+                time.sleep(3)
 
-            listening_thread.join()
-            handling_thread.join()
-        except KeyboardInterrupt:
-            print('Keyboard interrupt. Quit.')
-
-    def process(self):
+    def start_loop(self):
         self._configure_first_time()
 
         while True:
-            listening_thread = threading.Thread(target=self._listen, daemon=True)
-            handling_thread = threading.Thread(target=self._handle, daemon=True)
-            confirm_bets_thread = threading.Thread(target=self._confirming_bets, daemon=True)
+            listening_thread = threading.Thread(target=self._listening_for_updates, daemon=True)
+            handling_thread = threading.Thread(target=self._updates_handling, daemon=True)
+            confirm_bets_thread = threading.Thread(target=self._bets_confirming, daemon=True)
 
             listening_thread.start()
             handling_thread.start()
             confirm_bets_thread.start()
 
-            self._logger.debug('Start listening, handling and bets verifying thread threads.')
-            self._logger.debug(f'time limit: {self._data_storage.time_limit}')
+            self._logger.debug('Start listening, handling and bets verifying threads.')
+            self._logger.debug(f'Time limit: {self._data_storage.time_limit}')
 
-            while True:
-                remaining_time = (self._data_storage.time_limit - datetime.utcnow()).total_seconds()
-
-                if remaining_time <= 5:
-                    with self._lock:
-                        self._threads_end_flag = True
-                    break
-
-                if remaining_time // 2 > 3:
-                    time.sleep(remaining_time // 2)
-                else:
-                    time.sleep(3)
+            self._wait()
 
             listening_thread.join()
             handling_thread.join()
 
-            self._logger.debug('Listening and handling threads joined.')
+            self._logger.debug('Listening, handling and bets verifying threads joined.')
 
             self._broadcast_time_limit_message()
-
-            listening_thread = threading.Thread(target=self._listen, daemon=True)
-            handling_thread = threading.Thread(target=self._handle, args=(False,), daemon=True)
 
             self._threads_end_flag = False
 
@@ -178,75 +163,65 @@ class Engine:
 
             self._logger.debug('listening and handling threads (bets are not allowed) joined')
 
-            value = self._event_parser.update()['day']
+            new_control_value = self._data_storage.cases_day
+            self._data_storage.update_statistics()
 
-            control_value = self._data_storage.control_value
             rate_A, rate_B = self._command_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
-            if value <= control_value:
+            if self._data_storage.cases_day <= self._data_storage.control_value:
                 winner = 'A'
                 rate = rate_A
             else:
                 winner = 'B'
                 rate = rate_B
 
-            #  pay here or write messages about that in channel, etc.
-
             self._broadcast_new_round_message(winner, rate)
-            self._configure_new_round()
+            self._configure_new_round(new_control_value)
 
-    def _configure_new_round(self):
+    def _configure_new_round(self, new_control_value):
         self._data_storage.reset_bets()
 
         now = datetime.utcnow()
         tomorrow = date(now.year, now.month, now.day) + timedelta(days=1)
 
         # time limit - 6:00 GMT (9:00 MSK)
-        time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
-
-        control_value = self._event_parser.update()['day']
-
-        self._data_storage.control_value = control_value
-        self._data_storage.time_limit = time_limit
-        self._data_storage.update_statistics()
+        self._data_storage.time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
+        self._data_storage.control_value = new_control_value
 
         self._threads_end_flag = False
 
     def _broadcast_time_limit_message(self):
-        chat_ids = self._data_storage.get_users_ids_list()
-        timeout_message = self._data_storage.responses['40']
+        users_ids_list = self._data_storage.get_users_ids_list()
+        rate_A, rate_B = self._command_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
-        rate_A, rate_B = self._command_handler.represent_rates(self._data_storage.rate_A,
-                                                               self._data_storage.rate_B)
+        timeout_message = self._data_storage.responses['40']['ru'].replace('{#1}', rate_A).replace('{#2}', rate_B)
 
-        for chat_id in chat_ids:
-            self._sender.send_message(chat_id, timeout_message['ru'].replace('{#1}', rate_A).replace('{#2}', rate_B))
+        for user_id in users_ids_list:
+            self._sender.send_message(user_id, timeout_message)
 
     def _broadcast_new_round_message(self, winner, rate):
-        data = self._event_parser.update()
-        cases_day, cases_all, date_ = data['day'], data['total'], data['date']
-
-        message = self._data_storage.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
-            .replace('{#3}', str(cases_day)) \
-            .replace('{#4}', str(cases_all)) \
-            .replace('{#5}', str(date_))
+        new_round_message = self._data_storage.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
+            .replace('{#3}', str(self._data_storage.cases_day)) \
+            .replace('{#4}', str(self._data_storage.cases_total)) \
+            .replace('{#5}', str(self._data_storage.date))
 
         users = self._data_storage.get_users_ids_list()
         rate = float(rate)
 
         for user in users:
             win_amount = 0.0
-            bets = self._data_storage.get_user_bets(user)
+            bet_list = self._data_storage.get_user_bets(user)
 
-            for bet in bets:
+            for bet in bet_list:
                 if bet['confirmed'] and bet['category'] == winner:
                     win_amount += self._data_storage.bet_amount * rate
 
-            self._sender.send_message(user, message)
+            self._sender.send_message(user, new_round_message)
             self._logger.info(f'User {user} wins {win_amount}.')
 
             if win_amount > 0:
-                self._sender.send_message(user, f'Ваш выигрыш составляет: {str(math.trunc(win_amount * 1000) / 1000)} ETH')
+                self._sender.send_message(user,
+                                          f'Ваш выигрыш составляет: {str(math.trunc(win_amount * 1000) / 1000)} ETH')
 
     def _configure_first_time(self):
         control_value = self._event_parser.update()['day']
@@ -271,104 +246,110 @@ class Engine:
         self._data_storage.fee = fee
 
         now = datetime.utcnow()
-        day, month, year = now.day, now.month, now.year
-        tomorrow = date(year, month, day) + timedelta(days=1)
+        tomorrow = date(now.year, now.month, now.day) + timedelta(days=1)
 
         # time limit - 6:00 GMT (9:00 MSK)
-        time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
-
-        self._data_storage.time_limit = time_limit
+        self._data_storage.time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
 
         self._threads_end_flag = False
 
-        self._logger.info('Configured.')
+        self._logger.info('First configuration completed.')
 
-    def _listen(self):
-        new_offset = None
+    def _listening_for_updates(self):
+        offset = None
 
         while True:
             with self._lock:
                 if self._threads_end_flag:
                     break
 
-            updates = self._get_updates(new_offset)
+            updates_list = self._get_updates(offset)
 
-            for update in updates:
+            for update in updates_list:
                 self._log_telegram_update(update)
-                last_update_id = update['update_id']
 
                 with self._lock:
                     self._updates_queue.put(update)
 
-                new_offset = last_update_id + 1
+                offset = update['update_id'] + 1
 
-    def _handle(self, bets_are_allowed=True):
+    @staticmethod
+    def _extract_user_data_from_message(update):
+        if 'last_name' in update['message']['from']:
+            name = f"{update['message']['from']['first_name']} {update['message']['from']['last_name']}"
+        else:
+            name = f"{update['message']['from']['first_name']}"
+
+        if 'username' in update['message']['from']:
+            login = update['message']['from']['username']
+        else:
+            login = None
+
+        return name, login
+
+    def _handle_message(self, message, bets_allowed):
+        chat_id = message['message']['from']['id']
+
+        if self._data_storage.is_new_user(chat_id):
+            name, login = self._extract_user_data_from_message(message)
+            self._data_storage.add_user(name, login, chat_id, 'ru')
+
+        if message['message']['text'].startswith('/'):
+            self._command_handler.handle_command(message, bets_allowed)
+        else:
+            self._command_handler.handle_text_message(message)
+
+    def _handle_bet_verifying_update(self, update):
+        state = self._data_storage.get_user_state(update['chat_id'])
+
+        if state:
+            with self._lock:
+                self._updates_queue.put(update)
+        else:
+            self._sender.send_message(update['chat_id'], f'Ваш голос подтвержден.\nID: {update["bet_id"]}')
+
+    def _handle_callback_query(self, update, bets_allowed):
+        chat_id = update['callback_query']['from']['id']
+        state = self._data_storage.get_user_state(chat_id)
+
+        if state:
+            self._command_handler.handle_user_state(chat_id, state, update, bets_allowed)
+        else:
+            self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
+
+    def _updates_handling(self, bets_allowed=True):
         while True:
             with self._lock:
                 if self._threads_end_flag:
                     break
 
-            update = None
             with self._lock:
                 if not self._updates_queue.empty():
                     update = self._updates_queue.get()
-
-            if update and 'bet_id' in update:
-                state = self._data_storage.get_user_state(update['chat_id'])
-
-                if not state:
-                    self._sender.send_message(update['chat_id'], f'Ваш голос подтвержден.\nID: {update["bet_id"]}')
                 else:
-                    with self._lock:
-                        self._updates_queue.put(update)
-
-                continue
+                    continue
 
             if update:
                 if 'message' in update:
-                    chat_id = update['message']['from']['id']
-
-                    if self._data_storage.is_new_user(chat_id):
-                        if 'last_name' in update['message']['from']:
-                            name = f"{update['message']['from']['first_name']} {update['message']['from']['last_name']}"
-                        else:
-                            name = f"{update['message']['from']['first_name']}"
-
-                        if 'username' in update['message']['from']:
-                            login = update['message']['from']['username']
-                        else:
-                            login = None
-
-                        self._data_storage.add_user(name, login, chat_id, 'ru')
-
-                    if update['message']['text'].startswith('/'):
-                        self._command_handler.handle_command(update, bets_are_allowed)
-                    else:
-                        self._command_handler.handle_text_message(update)
+                    self._handle_message(update, bets_allowed)
 
                 elif 'callback_query' in update:
-                    chat_id = update['callback_query']['from']['id']
-                    state = self._data_storage.get_user_state(chat_id)
+                    self._handle_callback_query(update, bets_allowed)
 
-                    if state:
-                        self._command_handler.handle_user_state(chat_id, state, update, bets_are_allowed)
-                    else:
-                        self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
+                elif 'bet_id' in update:
+                    self._handle_bet_verifying_update(update)
 
-    def _confirming_bets(self):
+    def _bets_confirming(self):
         while True:
             with self._lock:
                 if self._threads_end_flag:
                     return
 
-            bets = self._data_storage.get_unconfirmed_bets_list()
+            bets_list = self._data_storage.get_unconfirmed_bets_list()
 
-            for bet in bets:
-                chat_id = bet['chat_id']
-
-                time.sleep(5)
-                bet_id = bet['bet_id']
-                self._data_storage.confirm_bet(bet_id)
+            for bet in bets_list:
+                time.sleep(5)  # simulates bet verifying process
+                self._data_storage.confirm_bet(bet['bet_id'])
 
                 with self._lock:
-                    self._updates_queue.put({'bet_id': bet_id, 'chat_id': chat_id})
+                    self._updates_queue.put(deepcopy(bet))

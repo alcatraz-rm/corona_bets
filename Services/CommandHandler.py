@@ -18,19 +18,19 @@ class CommandHandler:
         self._sender = Sender(access_token)
         self._ether_scan = EtherScan()
 
-    def handle_text_message(self, message, bets_are_allowed=True):
+    def handle_text_message(self, message, bets_allowed=True):
         chat_id = message['message']['from']['id']
         user_state = self._data_storage.get_user_state(chat_id)
 
         if user_state:
-            self.handle_user_state(chat_id, user_state, message, bets_are_allowed)
+            self.handle_user_state(chat_id, user_state, message, bets_allowed)
             return
 
         self._sender.send_message(chat_id, 'Не понимаю, что нужно сделать, '
                                            'но могу действовать в соответствии со своими командами',
                                            reply_markup=self._data_storage.basic_keyboard)
 
-    def handle_command(self, command_type, bets_are_allowed):
+    def handle_command(self, command_type, bets_allowed):
         chat_id = command_type['message']['from']['id']
         command_type = command_type['message']['text'].split()
 
@@ -61,7 +61,7 @@ class CommandHandler:
 
         elif command_type[0] in self._action_command_types:
             if command_type[0] == '/bet':
-                if bets_are_allowed:
+                if bets_allowed:
                     self._handle_bet_command(command_type)
                 else:
                     self._sender.send_message(chat_id, 'Извините, время для участия в текущей игре вышло.')
@@ -69,8 +69,8 @@ class CommandHandler:
         else:
             self._sender.send_message(chat_id, self._data_storage.responses['3']['ru'])
 
-    def handle_user_state(self, chat_id, state, message, bets_are_allowed=True):
-        if bets_are_allowed:
+    def handle_user_state(self, chat_id, state, message, bets_allowed=True):
+        if bets_allowed:
             if state == 'wait_choice':
                 self._handle_user_choice(chat_id, message)
 
