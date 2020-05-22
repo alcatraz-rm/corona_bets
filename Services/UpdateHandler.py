@@ -277,7 +277,7 @@ class UpdateHandler:
         date = self._data_storage.date - timedelta(hours=3)
 
         message = self._data_storage.responses['35']['ru'].replace('{#1}', str(cases_day)) \
-            .replace('{#2}', str(cases_all)).replace('{#3}', date)
+            .replace('{#2}', str(cases_all)).replace('{#3}', str(date))
 
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
 
