@@ -211,8 +211,8 @@ class DataStorage(metaclass=Singleton):
     def get_unconfirmed_bets_list(self):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute('SELECT ID,user from bets WHERE confirmed=0')
-            return [dict(bet_id=bet[0], chat_id=bet[4])
+            cursor.execute('SELECT ID,user,category,wallet from bets WHERE confirmed=0')
+            return [dict(bet_id=bet[0], chat_id=bet[1], wallet=bet[3], category=bet[2])
                     for bet in cursor.fetchall()]
 
     def confirm_bet(self, bet_id):

@@ -208,19 +208,29 @@ class Engine:
         rate = float(rate)
 
         for user in users:
-            win_amount = 0.0
-            bet_list = self._data_storage.get_user_bets(user)
-
-            for bet in bet_list:
-                if bet['confirmed'] and bet['category'] == winner:
-                    win_amount += self._data_storage.bet_amount * rate
-
             self._sender.send_message(user, new_round_message)
-            self._logger.info(f'User {user} wins {win_amount}.')
 
-            if win_amount > 0:
-                self._sender.send_message(user,
-                                          f'Ваш выигрыш составляет: {str(math.trunc(win_amount * 1000) / 1000)} ETH')
+            bet_list = self._data_storage.get_user_bets(user)
+            win_message = self._generate_win_message(bet_list, winner, rate)
+
+            if win_message:
+                self._sender.send_message(user, win_message)
+
+    def _generate_win_message(self, bet_list, winner, rate):
+        total_amount = 0.0
+        message = ''
+
+        for n, bet in enumerate(bet_list):
+            if bet['confirmed'] and bet['category'] == winner:
+                current_amount = self._data_storage.bet_amount * rate
+                message += f'Игра {n}:\n' \
+                           f'Кошелёк: {bet["wallet"]}\n' \
+                           f'Выплата: {math.trunc(current_amount * 1000) / 1000}\n\n'
+
+                total_amount += current_amount
+
+        if total_amount > 0:
+            return message + f'Общий выигрыш: {math.trunc(total_amount * 1000) / 1000} ETH'
 
     def _configure_first_time(self):
         control_value = self._statistics_parser.update()['day']
@@ -299,13 +309,30 @@ class Engine:
             self._update_handler.handle_text_message(message)
 
     def _handle_bet_verifying_update(self, update):
-        state = self._data_storage.get_user_state(update['chat_id'])
+        user_state = self._data_storage.get_user_state(update['chat_id'])
+        bets_list = self._data_storage.get_user_bets(update['chat_id'])
 
-        if state:
+        rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+
+        if update["category"] == 'A':
+            rate = rate_A
+        else:
+            rate = rate_B
+
+        for n, bet in enumerate(bets_list):
+            if bet['bet_id'] == update['bet_id']:
+                bet_number = n + 1
+                break
+
+        if user_state:
             with self._lock:
                 self._updates_queue.put(update)
         else:
-            self._sender.send_message(update['chat_id'], f'Ваш голос подтвержден.\nID: {update["bet_id"]}')
+            self._sender.send_message(update['chat_id'], f'Игра {bet_number}:\n'
+                                                         f'Категория: {update["category"]}, '
+                                                         f'текущий коэффициент {rate}\n'
+                                                         f'Кошелёк: {update["wallet"]}\n'
+                                                         f'Статус: Подтверждена')
 
     def _handle_callback_query(self, update, bets_allowed):
         chat_id = update['callback_query']['from']['id']

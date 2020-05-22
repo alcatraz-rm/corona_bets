@@ -30,9 +30,9 @@ class UpdateHandler:
                                            'но могу действовать в соответствии со своими командами',
                                            reply_markup=self._data_storage.basic_keyboard)
 
-    def handle_command(self, command_type, bets_allowed):
-        chat_id = command_type['message']['from']['id']
-        command_type = command_type['message']['text'].split()
+    def handle_command(self, command, bets_allowed):
+        chat_id = command['message']['from']['id']
+        command_type = command['message']['text'].split()
 
         state = self._data_storage.get_user_state(chat_id)
 
@@ -62,7 +62,7 @@ class UpdateHandler:
         elif command_type[0] in self._action_command_types:
             if command_type[0] == '/bet':
                 if bets_allowed:
-                    self._handle_bet_command(command_type)
+                    self._handle_bet_command(command)
                 else:
                     self._sender.send_message(chat_id, 'Извините, время для участия в текущей игре вышло.')
 
@@ -128,7 +128,7 @@ class UpdateHandler:
         if wallet == 'Отменить':
             self._cancel_bet_process(chat_id, 'Действие отменено.')
 
-        if self._ether_scan.wallet_is_correct(wallet):
+        elif self._ether_scan.wallet_is_correct(wallet):
             self._data_storage.add_wallet_to_last_bet(chat_id, wallet)
             self._data_storage.set_user_state(None, chat_id)
 
@@ -147,7 +147,8 @@ class UpdateHandler:
 
                 if wallet:
                     self._sender.send_message(chat_id,
-                                              self._data_storage.responses['20']['ru'].replace('{#1}', wallet),
+                                              self._data_storage.responses['20']['ru'].replace('{#1}', wallet)
+                                              .replace('{#2}', str(self._data_storage.bet_amount)),
                                               reply_markup=json.dumps({'inline_keyboard': [
                                                   [{
                                                       'text': self._data_storage.responses['8']['ru'],
@@ -162,7 +163,9 @@ class UpdateHandler:
 
                     self._data_storage.set_user_state('use_previous_wallet?', chat_id)
                 else:
-                    self._sender.send_message(chat_id, self._data_storage.responses['7']['ru'],
+                    self._sender.send_message(chat_id,
+                                              self._data_storage.responses['7']['ru']
+                                              .replace('{#1}', str(self._data_storage.bet_amount)),
                                               reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
                                                                        'resize_keyboard': True}))
 
@@ -260,11 +263,11 @@ class UpdateHandler:
         self._sender.send_message(chat_id, self._data_storage.responses['34']['ru'],
                                   reply_markup=self._data_storage.basic_keyboard)
 
-    def _handle_help_command(self, chat_id):
+    def _handle_help_command(self, chat_id):  # TODO: fix bug with smiles here
         message = self._data_storage.responses['36']['ru']
 
         message = message.replace('{#1}', str(self._data_storage.control_value))\
-                         .replace('{#2}', self._data_storage.control_value + 1)\
+                         .replace('{#2}', str(self._data_storage.control_value + 1))\
                          .replace('{#3}', str(self._data_storage.rate_A))\
                          .replace('{#4}', str(self._data_storage.rate_B))\
                          .replace('{#5}', str(self._data_storage.bet_amount))\
@@ -310,8 +313,7 @@ class UpdateHandler:
                 message += f'{self._data_storage.responses["25"]["ru"]} <b>{n + 1}</b>:' \
                            f'\n{self._data_storage.responses["26"]["ru"]}: {bet["category"]}' \
                            f'\n{self._data_storage.responses["27"]["ru"]}: {bet["wallet"]}' \
-                           f'\n{self._data_storage.responses["28"]["ru"]}: {status}' \
-                           f'\nID: {bet["bet_id"]}\n\n'
+                           f'\n{self._data_storage.responses["28"]["ru"]}: {status}\n\n'
 
             self._sender.send_message(chat_id, message,
                                       reply_markup=json.dumps({'keyboard': [
