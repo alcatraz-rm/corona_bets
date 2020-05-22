@@ -51,8 +51,7 @@ class DataStorage(metaclass=Singleton):
 
         self.basic_keyboard = json.dumps({'keyboard': [
                                                 [{'text': '/how_many'}, {'text': '/bet'}],
-                                                [{'text': '/current_round'}, {'text': '/status'}],
-                                                [{'text': '/help'}]],
+                                                [{'text': '/help'}, {'text': '/status'}]],
                                           'resize_keyboard': True})
 
     @staticmethod
