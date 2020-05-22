@@ -9,7 +9,7 @@ from Services.DataStorage import DataStorage
 
 class UpdateHandler:
     def __init__(self, telegram_access_token):
-        self._info_command_types = ['/start', '/help', '/how_many', '/current_round', '/status']
+        self._info_command_types = ['/start', '/help', '/how_many', '/status']
         self._action_command_types = ['/bet']
         self._admin_commands = ['/set_wallet_a', '/set_wallet_b', '/set_fee', '/set_vote_end_time']
 
@@ -52,9 +52,6 @@ class UpdateHandler:
 
             elif command_type[0] == '/how_many':
                 self._handle_how_many_command(chat_id)
-
-            elif command_type[0] == '/current_round':
-                self._handle_current_round_command(chat_id)
 
             elif command_type[0] == '/status':
                 self._handle_status_command(chat_id)
@@ -284,19 +281,6 @@ class UpdateHandler:
 
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
 
-    def _handle_current_round_command(self, chat_id):
-        control_value = self._data_storage.control_value
-
-        rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
-
-        message = self._data_storage.responses['37']['ru'].replace('{#1}', str(control_value)) \
-            .replace('{#2}', str(control_value + 1)) \
-            .replace('{#3}', rate_A) \
-            .replace('{#4}', rate_B) \
-            .replace('{#5}', f"{self._data_storage.time_limit} GMT")
-
-        self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
-
     def _handle_status_command(self, chat_id):
         bet_list = self._data_storage.get_user_bets(chat_id)
 
@@ -317,8 +301,7 @@ class UpdateHandler:
 
             self._sender.send_message(chat_id, message,
                                       reply_markup=json.dumps({'keyboard': [
-                                                                    [{'text': '/bet'}, {'text': '/help'}],
-                                                                    [{'text': '/current_round'}]],
+                                                                    [{'text': '/bet'}, {'text': '/help'}]],
                                                                'resize_keyboard': True}))
         else:
             self._sender.send_message(chat_id, self._data_storage.responses["31"]['ru'])
