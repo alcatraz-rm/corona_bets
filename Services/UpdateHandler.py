@@ -262,11 +262,12 @@ class UpdateHandler:
 
     def _handle_help_command(self, chat_id):  # TODO: fix bug with smiles here
         message = self._data_storage.responses['36']['ru']
+        rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
         message = message.replace('{#1}', str(self._data_storage.control_value))\
                          .replace('{#2}', str(self._data_storage.control_value + 1))\
-                         .replace('{#3}', str(self._data_storage.rate_A))\
-                         .replace('{#4}', str(self._data_storage.rate_B))\
+                         .replace('{#3}', rate_A)\
+                         .replace('{#4}', rate_B)\
                          .replace('{#5}', str(self._data_storage.bet_amount))\
                          .replace('{#6}', str(self._data_storage.time_limit))
 

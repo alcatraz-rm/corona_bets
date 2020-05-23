@@ -18,6 +18,7 @@ from Services.StatisticsParser import StatisticsParser
 from Services.Sender import Sender
 
 
+# TODO: fix bug with non-text data
 class Engine:
     def __init__(self, telegram_access_token):
         self._logger = logging.getLogger('Engine')
@@ -50,9 +51,19 @@ class Engine:
         self._logger.info(f'WD: {os.getcwd()}')
 
     def _get_updates(self, offset=None, timeout=30):
-        return requests.get(self._requests_url + 'getUpdates', {'timeout': timeout, 'offset': offset}).json()['result']
+        updates = requests.get(self._requests_url + 'getUpdates', {'timeout': timeout, 'offset': offset}).json()
+
+        if 'result' in updates:
+            return updates['result']
+        else:
+            self._logger.warning(f'Not result-key in updates: {updates}')
+            return []
 
     def _log_new_message(self, message):
+        if not 'message' in message or not 'text' in message['message']:
+            self._logger.info(message)
+            return
+
         log_message = {'type': 'message'}
 
         chat_id = message['message']['from']['id']
@@ -297,16 +308,19 @@ class Engine:
         return name, login
 
     def _handle_message(self, message, bets_allowed):
-        chat_id = message['message']['from']['id']
+        if 'message' in message and 'text' in message['message']:
+            chat_id = message['message']['from']['id']
 
-        if self._data_storage.is_new_user(chat_id):
-            name, login = self._extract_user_data_from_message(message)
-            self._data_storage.add_user(name, login, chat_id, 'ru')
+            if self._data_storage.is_new_user(chat_id):
+                name, login = self._extract_user_data_from_message(message)
+                self._data_storage.add_user(name, login, chat_id, 'ru')
 
-        if message['message']['text'].startswith('/'):
-            self._update_handler.handle_command(message, bets_allowed)
+            if message['message']['text'].startswith('/'):
+                self._update_handler.handle_command(message, bets_allowed)
+            else:
+                self._update_handler.handle_text_message(message)
         else:
-            self._update_handler.handle_text_message(message)
+            print(message)
 
     def _handle_bet_verifying_update(self, update):
         user_state = self._data_storage.get_user_state(update['chat_id'])
