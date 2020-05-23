@@ -50,7 +50,7 @@ class DataStorage(metaclass=Singleton):
             bets_ids = cursor.fetchall()
 
             if bets_ids:
-                self._last_bet_id = max(bets_ids, key=lambda x: x[0])
+                self._last_bet_id = max(bets_ids, key=lambda x: x[0])[0]
             else:
                 self._last_bet_id = 0
 
