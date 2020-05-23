@@ -46,8 +46,13 @@ class DataStorage(metaclass=Singleton):
 
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute('SELECT * from bets')
-            self._last_bet_id = len(cursor.fetchall())
+            cursor.execute('SELECT ID from bets')
+            bets_ids = cursor.fetchall()
+
+            if bets_ids:
+                self._last_bet_id = max(bets_ids, key=lambda x: x[0])
+            else:
+                self._last_bet_id = 0
 
         self.basic_keyboard = json.dumps({'keyboard': [
                                                 [{'text': '/how_many'}, {'text': '/bet'}],
