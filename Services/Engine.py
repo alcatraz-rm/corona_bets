@@ -152,6 +152,9 @@ class Engine:
 
             self._threads_end_flag = False
 
+            listening_thread = threading.Thread(target=self._listening_for_updates, daemon=True)
+            handling_thread = threading.Thread(target=self._updates_handling, daemon=True, args=(False,))
+
             listening_thread.start()
             handling_thread.start()
 
