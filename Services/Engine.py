@@ -207,16 +207,24 @@ class Engine:
         users_ids_list = self._data_storage.get_users_ids_list()
         rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
-        timeout_message = self._data_storage.responses['40']['ru'].replace('{#1}', rate_A).replace('{#2}', rate_B)
+        # timeout_message = self._data_storage.responses['40']['ru'].replace('{#1}', rate_A).replace('{#2}', rate_B)
+        timeout_message = self._data_storage.responses['timeout_message']['ru']\
+            .replace('{rate_A}', str(rate_A)).replace('{rate_B}', rate_B)
 
         for user_id in users_ids_list:
             self._sender.send_message(user_id, timeout_message)
 
     def _broadcast_new_round_message(self, winner, rate):
-        new_round_message = self._data_storage.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
-            .replace('{#3}', str(self._data_storage.cases_day)) \
-            .replace('{#4}', str(self._data_storage.cases_total)) \
-            .replace('{#5}', str(self._data_storage.date))
+        # new_round_message = self._data_storage.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
+        #     .replace('{#3}', str(self._data_storage.cases_day)) \
+        #     .replace('{#4}', str(self._data_storage.cases_total)) \
+        #     .replace('{#5}', str(self._data_storage.date))
+
+        new_round_message = self._data_storage.responses['new_round_message']['ru']\
+            .replace('{winner}', str(winner)).replace('{rate}', str(rate))\
+            .replace('{cases_day}', str(self._data_storage.cases_day))\
+            .replace('{cases_total}', str(self._data_storage.cases_total))\
+            .replace('{last_update_time}', str(self._data_storage.date))
 
         users = self._data_storage.get_users_ids_list()
         rate = float(rate)
@@ -230,6 +238,8 @@ class Engine:
             if win_message:
                 self._sender.send_message(user, win_message)
 
+    # TODO: optimize this (you may not form all message, before you should try ro find one verified bet
+    #  with required category
     def _generate_win_message(self, bet_list, winner, rate):
         total_amount = 0.0
         message = ''
@@ -237,14 +247,20 @@ class Engine:
         for n, bet in enumerate(bet_list):
             if bet['confirmed'] and bet['category'] == winner:
                 current_amount = self._data_storage.bet_amount * rate
-                message += f'Игра {n}:\n' \
-                           f'Кошелёк: {bet["wallet"]}\n' \
-                           f'Выплата: {math.trunc(current_amount * 1000) / 1000}\n\n'
+                # message += f'Игра {n}:\n' \
+                #            f'Кошелёк: {bet["wallet"]}\n' \
+                #            f'Выплата: {math.trunc(current_amount * 1000) / 1000}\n\n'
+
+                message += self._data_storage.responses['win_message_one_bet']['ru'].replace('{bet_number}', str(n))\
+                    .replace('{wallet}', bet['wallet'])\
+                    .replace('{amount}', str(math.trunc(current_amount * 1000) / 1000))
 
                 total_amount += current_amount
 
         if total_amount > 0:
-            return message + f'Общий выигрыш: {math.trunc(total_amount * 1000) / 1000} ETH'
+            # return message + f'Общий выигрыш: {math.trunc(total_amount * 1000) / 1000} ETH'
+            return message + self._data_storage.responses['win_message_total_amount']['ru']\
+                .replace('{amount}', str(math.trunc(total_amount * 1000) / 1000))
 
     def _configure_first_time(self):
         control_value = self._statistics_parser.update()['day']

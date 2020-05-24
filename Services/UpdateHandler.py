@@ -284,6 +284,7 @@ class UpdateHandler:
 
     def _handle_status_command(self, chat_id):
         bet_list = self._data_storage.get_user_bets(chat_id)
+        rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
         if len(bet_list) > 0:
             message = ''
@@ -295,8 +296,13 @@ class UpdateHandler:
                 else:
                     status = self._data_storage.responses["30"]['ru']
 
+                if bet['category'] == 'A':
+                    rate = rate_A
+                else:
+                    rate = rate_B
+
                 message += f'{self._data_storage.responses["25"]["ru"]} <b>{n + 1}</b>:' \
-                           f'\n{self._data_storage.responses["26"]["ru"]}: {bet["category"]}' \
+                           f'\n{self._data_storage.responses["26"]["ru"]}: {bet["category"]}, текущий коэффициент {rate}' \
                            f'\n{self._data_storage.responses["27"]["ru"]}: {bet["wallet"]}' \
                            f'\n{self._data_storage.responses["28"]["ru"]}: {status}\n\n'
 
