@@ -185,10 +185,10 @@ class UpdateHandler:
                                               .replace('{bet_amount}', str(self._data_storage.bet_amount)),
                                               reply_markup=json.dumps({'inline_keyboard': [
                                                   [{
-                                                      'text': self._data_storage.responses['8']['ru'],
+                                                      'text': self._data_storage.responses['yes']['ru'],
                                                       'callback_data': 1},
                                                    {
-                                                       'text': self._data_storage.responses['9']['ru'],
+                                                       'text': self._data_storage.responses['change']['ru'],
                                                        'callback_data': 0}],
                                                   [{
                                                       'text': 'Отменить',
@@ -345,14 +345,16 @@ class UpdateHandler:
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
 
     def _handle_how_many_command(self, chat_id):
-        cases_day, cases_all = self._data_storage.cases_day, self._data_storage.cases_total
-        date = self._data_storage.date - timedelta(hours=3)
+    #     cases_day, cases_all = self._data_storage.cases_day, self._data_storage.cases_total
+    #     date = self._data_storage.date - timedelta(hours=3)
 
         # message = self._data_storage.responses['35']['ru'].replace('{#1}', str(cases_day)) \
         #     .replace('{#2}', str(cases_all)).replace('{#3}', str(date))
 
-        message = self._data_storage.responses['how_many_message']['ru'].replace('{cases_day}', str(cases_day)) \
-            .replace('{cases_total}', str(cases_all)).replace('{time_limit}', str(date))
+        message = self._data_storage.responses['how_many_message']['ru']\
+            .replace('{cases_day}', str(self._data_storage.cases_day)) \
+            .replace('{cases_total}', str(self._data_storage.cases_total))\
+            .replace('{time_limit}', str(self._data_storage.date - timedelta(hours=3)))
 
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
 
@@ -361,28 +363,36 @@ class UpdateHandler:
         rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
         if len(bet_list) > 0:
-            message = ''
+            status_message = ''
 
             for n, bet in enumerate(bet_list):
                 if bet['confirmed']:
-                    status = self._data_storage.responses["29"]['ru']
+                    # status = self._data_storage.responses["29"]['ru']
+                    status = self._data_storage.responses['confirmed']['ru']
 
                 else:
-                    status = self._data_storage.responses["30"]['ru']
+                    # status = self._data_storage.responses["30"]['ru']
+                    status = self._data_storage.responses['unconfirmed']['ru']
 
                 if bet['category'] == 'A':
                     rate = rate_A
                 else:
                     rate = rate_B
 
-                message += f'{self._data_storage.responses["25"]["ru"]} <b>{n + 1}</b>:' \
-                           f'\n{self._data_storage.responses["26"]["ru"]}: {bet["category"]}, текущий коэффициент {rate}' \
-                           f'\n{self._data_storage.responses["27"]["ru"]}: {bet["wallet"]}' \
-                           f'\n{self._data_storage.responses["28"]["ru"]}: {status}\n\n'
+                status_message += self._data_storage.responses['status_one_bet_message']['ru']\
+                    .replace('{bet_number}', str(n + 1))\
+                    .replace('{category}', bet['category'])\
+                    .replace('{rate}', str(rate)).replace('{wallet}', bet['wallet']).replace('{status}', status)
 
-            self._sender.send_message(chat_id, message,
+                # message += f'{self._data_storage.responses["25"]["ru"]} <b>{n + 1}</b>:' \
+                #            f'\n{self._data_storage.responses["26"]["ru"]}: {bet["category"]}, текущий коэффициент {rate}' \
+                #            f'\n{self._data_storage.responses["27"]["ru"]}: {bet["wallet"]}' \
+                #            f'\n{self._data_storage.responses["28"]["ru"]}: {status}\n\n'
+
+            self._sender.send_message(chat_id, status_message,
                                       reply_markup=json.dumps({'keyboard': [
                                                                     [{'text': '/bet'}, {'text': '/help'}]],
                                                                'resize_keyboard': True}))
         else:
-            self._sender.send_message(chat_id, self._data_storage.responses["31"]['ru'])
+            # self._sender.send_message(chat_id, self._data_storage.responses["31"]['ru'])
+            self._sender.send_message(chat_id, self._data_storage.responses['no_active_bets_message']['ru'])

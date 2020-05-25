@@ -18,7 +18,6 @@ from Services.StatisticsParser import StatisticsParser
 from Services.Sender import Sender
 
 
-# TODO: fix bug with non-text data
 class Engine:
     def __init__(self, telegram_access_token):
         self._logger = logging.getLogger('Engine')
