@@ -26,9 +26,6 @@ class UpdateHandler:
             self.handle_user_state(chat_id, user_state, message, bets_allowed)
             return
 
-        # self._sender.send_message(chat_id, 'Не понимаю, что нужно сделать, '
-        #                                    'но могу действовать в соответствии со своими командами',
-        #                                    reply_markup=self._data_storage.basic_keyboard)
         self._sender.send_message(chat_id, self._data_storage.responses['default_answer_text'],
                                   reply_markup=self._data_storage.basic_keyboard)
 
@@ -41,9 +38,6 @@ class UpdateHandler:
         if state:
             self._data_storage.set_user_state(None, chat_id)
 
-            # self._sender.send_message(chat_id, 'Не понимаю, что нужно сделать, '
-            #                                    'но могу действовать в соответствии со своими командами',
-            #                                    reply_markup=self._data_storage.basic_keyboard)
             self._sender.send_message(chat_id, self._data_storage.responses['default_answer_text'],
                                       reply_markup=self._data_storage.basic_keyboard)
 
@@ -65,7 +59,6 @@ class UpdateHandler:
                 if bets_allowed:
                     self._handle_bet_command(command)
                 else:
-                    # self._sender.send_message(chat_id, 'Извините, время для участия в текущей игре вышло.')
                     self._sender.send_message(chat_id, self._data_storage.responses['bet_timeout_message']['ru'])
 
         else:
@@ -85,7 +78,6 @@ class UpdateHandler:
             elif state == 'wait_wallet':
                 self._check_wallet(chat_id, message)
         else:
-            # self._sender.send_message(chat_id, 'Извините, время для участия в текущей игре вышло.')
             self._sender.send_message(chat_id, self._data_storage.responses['bet_timeout_message']['ru'])
 
     def _cancel_bet_process(self, chat_id, message):
@@ -100,14 +92,11 @@ class UpdateHandler:
             self._sender.answer_callback_query(chat_id, message['callback_query']['id'], None)
 
             if use_previous_wallet == -1:  # -1 means that user cancel bet process
-                # self._cancel_bet_process(chat_id, 'Действие отменено.')
                 self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
 
             elif use_previous_wallet:
                 self._data_storage.add_wallet_to_last_bet(chat_id, self._data_storage.get_last_wallet(chat_id))
 
-                # self._sender.send_message(chat_id, self._data_storage.responses['10']['ru'],
-                #                           reply_markup=self._data_storage.basic_keyboard)
                 self._sender.send_message(chat_id, self._data_storage.responses['using_previous_wallet_message']['ru'],
                                           reply_markup=self._data_storage.basic_keyboard)
 
@@ -115,11 +104,6 @@ class UpdateHandler:
 
             else:
                 self._data_storage.set_user_state('wait_wallet', chat_id)
-                # message = self._data_storage.responses['11']['ru']
-
-                # self._sender.send_message(chat_id, message,
-                #                           reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
-                #                                                    'resize_keyboard': True}))
 
                 self._sender.send_message(chat_id, self._data_storage.responses['enter_ether_wallet_message']['ru'],
                                           reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
@@ -129,30 +113,22 @@ class UpdateHandler:
             self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
 
         else:
-            # self._cancel_bet_process(chat_id, 'Я, к сожалению, умею выполнять только команды ниже :)\nСписок доступных '
-            #                                   'команд можно узнать по команде /help.')
-
             self._cancel_bet_process(chat_id, self._data_storage.responses['default_answer_command']['ru'])
 
     def _check_wallet(self, chat_id, message):
         wallet = message['message']['text']
 
         if wallet == 'Отменить':
-            # self._cancel_bet_process(chat_id, 'Действие отменено.')
             self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
 
         elif self._ether_scan.wallet_is_correct(wallet):
             self._data_storage.add_wallet_to_last_bet(chat_id, wallet)
             self._data_storage.set_user_state(None, chat_id)
 
-            # self._sender.send_message(chat_id, self._data_storage.responses['12']['ru'],
-            #                           reply_markup=self._data_storage.basic_keyboard)
-
             self._sender.send_message(chat_id,
                                       self._data_storage.responses['wallet_successfully_changed_message']['ru'],
                                       reply_markup=self._data_storage.basic_keyboard)
         else:
-            # self._sender.send_message(chat_id, self._data_storage.responses['22']['ru'])
             self._sender.send_message(chat_id, self._data_storage.responses['incorrect_wallet_message']['ru'])
 
     def _handle_user_choice_after_qr(self, chat_id, message):
@@ -164,21 +140,6 @@ class UpdateHandler:
                 wallet = self._data_storage.get_last_wallet(chat_id)
 
                 if wallet:
-                    # self._sender.send_message(chat_id,
-                    #                           self._data_storage.responses['20']['ru'].replace('{#1}', wallet)
-                    #                           .replace('{#2}', str(self._data_storage.bet_amount)),
-                    #                           reply_markup=json.dumps({'inline_keyboard': [
-                    #                               [{
-                    #                                   'text': self._data_storage.responses['8']['ru'],
-                    #                                   'callback_data': 1},
-                    #                                {
-                    #                                    'text': self._data_storage.responses['9']['ru'],
-                    #                                    'callback_data': 0}],
-                    #                               [{
-                    #                                   'text': 'Отменить',
-                    #                                   'callback_data': -1}]],
-                    #                                                     'resize_keyboard': True}))
-
                     self._sender.send_message(chat_id,
                                               self._data_storage.responses['use_previous_wallet_question']['ru']
                                               .replace('{wallet}', wallet)
@@ -197,12 +158,6 @@ class UpdateHandler:
 
                     self._data_storage.set_user_state('use_previous_wallet?', chat_id)
                 else:
-                    # self._sender.send_message(chat_id,
-                    #                           self._data_storage.responses['7']['ru']
-                    #                           .replace('{#1}', str(self._data_storage.bet_amount)),
-                    #                           reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
-                    #                                                    'resize_keyboard': True}))
-
                     self._sender.send_message(chat_id,
                                               self._data_storage.responses['enter_ether_wallet_first_time_message']['ru']
                                               .replace('{bet_amount}', str(self._data_storage.bet_amount)),
@@ -226,16 +181,9 @@ class UpdateHandler:
             category = message['callback_query']['data']
             self._data_storage.add_bet(chat_id, category)
 
-            # self._sender.answer_callback_query(chat_id, message['callback_query']['id'],
-            #                                    self._data_storage.responses['5']['ru'].replace('{#1}', category))
-
             self._sender.answer_callback_query(chat_id, message['callback_query']['id'],
                                                self._data_storage.responses['you_voted_for_message']['ru']
                                                .replace('{category}', category))
-
-            # message_after_choice = self._data_storage.responses['39']['ru'].replace('{#1}', category) \
-            #     .replace('{#2}', str(self._data_storage.bet_amount)) \
-            #     .replace('{#3}', f'{self._data_storage.time_limit} GMT')
 
             message_after_choice = self._data_storage.responses['message_after_vote']['ru']\
                 .replace('{category}', category) \
@@ -271,15 +219,6 @@ class UpdateHandler:
         chat_id = command['message']['from']['id']
         rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
-        # announcement = self._data_storage.responses['38']['ru'] \
-        #     .replace('{#1}', str(self._data_storage.cases_day)) \
-        #     .replace('{#4}', str(self._data_storage.control_value)) \
-        #     .replace('{#2}', rate_A) \
-        #     .replace('{#3}', rate_B)\
-        #     .replace('{#5}', str(self._data_storage.control_value + 1))\
-        #     .replace('{#7}', str(self._data_storage.bet_amount))\
-        #     .replace('{#6}', str(self._data_storage.time_limit))
-
         announcement = self._data_storage.responses['announcement']['ru'] \
             .replace('{cases_day}', str(self._data_storage.cases_day)) \
             .replace('{control_value}', str(self._data_storage.control_value)) \
@@ -293,10 +232,6 @@ class UpdateHandler:
             [{'text': 'A', 'callback_data': 'A'},
              {'text': 'B', 'callback_data': 'B'}]],
             'resize_keyboard': True}))
-
-        # self._sender.send_message(chat_id, 'Для отмены нажмите "Отменить".',
-        #                           reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
-        #                                                    'resize_keyboard': True}))
 
         self._sender.send_message(chat_id, self._data_storage.responses['reject_message']['ru'],
                                   reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
@@ -319,21 +254,12 @@ class UpdateHandler:
             return str(rate_A), str(rate_B)
 
     def _handle_start_command(self, chat_id):
-        # self._sender.send_message(chat_id, self._data_storage.responses['34']['ru'],
-        #                           reply_markup=self._data_storage.basic_keyboard)
         self._sender.send_message(chat_id, self._data_storage.responses['start_message']['ru'],
                                   reply_markup=self._data_storage.basic_keyboard)
 
     def _handle_help_command(self, chat_id):
         message = self._data_storage.responses['help_message']['ru']
         rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
-
-        # message = message.replace('{#1}', str(self._data_storage.control_value))\
-        #                  .replace('{#2}', str(self._data_storage.control_value + 1))\
-        #                  .replace('{#3}', rate_A)\
-        #                  .replace('{#4}', rate_B)\
-        #                  .replace('{#5}', str(self._data_storage.bet_amount))\
-        #                  .replace('{#6}', str(self._data_storage.time_limit))
 
         message = message.replace('{control_value}', str(self._data_storage.control_value))\
                          .replace('{control_value + 1}', str(self._data_storage.control_value + 1))\
@@ -345,12 +271,6 @@ class UpdateHandler:
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
 
     def _handle_how_many_command(self, chat_id):
-    #     cases_day, cases_all = self._data_storage.cases_day, self._data_storage.cases_total
-    #     date = self._data_storage.date - timedelta(hours=3)
-
-        # message = self._data_storage.responses['35']['ru'].replace('{#1}', str(cases_day)) \
-        #     .replace('{#2}', str(cases_all)).replace('{#3}', str(date))
-
         message = self._data_storage.responses['how_many_message']['ru']\
             .replace('{cases_day}', str(self._data_storage.cases_day)) \
             .replace('{cases_total}', str(self._data_storage.cases_total))\
@@ -367,11 +287,9 @@ class UpdateHandler:
 
             for n, bet in enumerate(bet_list):
                 if bet['confirmed']:
-                    # status = self._data_storage.responses["29"]['ru']
                     status = self._data_storage.responses['confirmed']['ru']
 
                 else:
-                    # status = self._data_storage.responses["30"]['ru']
                     status = self._data_storage.responses['unconfirmed']['ru']
 
                 if bet['category'] == 'A':
@@ -384,15 +302,9 @@ class UpdateHandler:
                     .replace('{category}', bet['category'])\
                     .replace('{rate}', str(rate)).replace('{wallet}', bet['wallet']).replace('{status}', status)
 
-                # message += f'{self._data_storage.responses["25"]["ru"]} <b>{n + 1}</b>:' \
-                #            f'\n{self._data_storage.responses["26"]["ru"]}: {bet["category"]}, текущий коэффициент {rate}' \
-                #            f'\n{self._data_storage.responses["27"]["ru"]}: {bet["wallet"]}' \
-                #            f'\n{self._data_storage.responses["28"]["ru"]}: {status}\n\n'
-
             self._sender.send_message(chat_id, status_message,
                                       reply_markup=json.dumps({'keyboard': [
                                                                     [{'text': '/bet'}, {'text': '/help'}]],
                                                                'resize_keyboard': True}))
         else:
-            # self._sender.send_message(chat_id, self._data_storage.responses["31"]['ru'])
             self._sender.send_message(chat_id, self._data_storage.responses['no_active_bets_message']['ru'])

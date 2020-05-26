@@ -49,6 +49,8 @@ class Engine:
         self._logger.info(f'Platform: {platform.system().lower()}')
         self._logger.info(f'WD: {os.getcwd()}')
 
+        self._logger.info('Logger configured.')
+
     def _get_updates(self, offset=None, timeout=30):
         updates = requests.get(self._requests_url + 'getUpdates', {'timeout': timeout, 'offset': offset}).json()
 
@@ -145,7 +147,7 @@ class Engine:
             listening_thread.join()
             handling_thread.join()
 
-            self._logger.debug('Listening, handling and bets verifying threads joined.')
+            self._logger.debug('Listening, handling and bets verifying threads joined (bets are allowed).')
 
             self._broadcast_time_limit_message()
 
@@ -173,7 +175,7 @@ class Engine:
             listening_thread.join()
             handling_thread.join()
 
-            self._logger.debug('listening and handling threads (bets are not allowed) joined')
+            self._logger.debug('listening and handling threads (bets are not allowed) joined.')
 
             new_control_value = self._data_storage.cases_day
             self._data_storage.update_statistics()
@@ -206,7 +208,6 @@ class Engine:
         users_ids_list = self._data_storage.get_users_ids_list()
         rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
-        # timeout_message = self._data_storage.responses['40']['ru'].replace('{#1}', rate_A).replace('{#2}', rate_B)
         timeout_message = self._data_storage.responses['timeout_message']['ru']\
             .replace('{rate_A}', str(rate_A)).replace('{rate_B}', rate_B)
 
@@ -214,11 +215,6 @@ class Engine:
             self._sender.send_message(user_id, timeout_message)
 
     def _broadcast_new_round_message(self, winner, rate):
-        # new_round_message = self._data_storage.responses['41']['ru'].replace('{#1}', winner).replace('{#2}', str(rate)) \
-        #     .replace('{#3}', str(self._data_storage.cases_day)) \
-        #     .replace('{#4}', str(self._data_storage.cases_total)) \
-        #     .replace('{#5}', str(self._data_storage.date))
-
         new_round_message = self._data_storage.responses['new_round_message']['ru']\
             .replace('{winner}', str(winner)).replace('{rate}', str(rate))\
             .replace('{cases_day}', str(self._data_storage.cases_day))\
@@ -246,9 +242,6 @@ class Engine:
         for n, bet in enumerate(bet_list):
             if bet['confirmed'] and bet['category'] == winner:
                 current_amount = self._data_storage.bet_amount * rate
-                # message += f'Игра {n}:\n' \
-                #            f'Кошелёк: {bet["wallet"]}\n' \
-                #            f'Выплата: {math.trunc(current_amount * 1000) / 1000}\n\n'
 
                 message += self._data_storage.responses['win_message_one_bet']['ru'].replace('{bet_number}', str(n))\
                     .replace('{wallet}', bet['wallet'])\
@@ -257,7 +250,6 @@ class Engine:
                 total_amount += current_amount
 
         if total_amount > 0:
-            # return message + f'Общий выигрыш: {math.trunc(total_amount * 1000) / 1000} ETH'
             return message + self._data_storage.responses['win_message_total_amount']['ru']\
                 .replace('{amount}', str(math.trunc(total_amount * 1000) / 1000))
 
@@ -360,12 +352,6 @@ class Engine:
             with self._lock:
                 self._updates_queue.put(update)
         else:
-            # self._sender.send_message(update['chat_id'], f'Игра {bet_number}:\n'
-            #                                              f'Категория: {update["category"]}, '
-            #                                              f'текущий коэффициент {rate}\n'
-            #                                              f'Кошелёк: {update["wallet"]}\n'
-            #                                              f'Статус: Подтверждена')
-
             self._sender.send_message(update['chat_id'], self._data_storage.responses['bet_confirmed_message']['ru']
                                       .replace('{bet_number}', str(bet_number))\
                                       .replace('{category}', update["category"]))\

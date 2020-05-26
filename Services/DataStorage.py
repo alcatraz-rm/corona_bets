@@ -7,6 +7,7 @@ from Services.StatisticsParser import StatisticsParser
 from Services.Singleton import Singleton
 
 
+# TODO: create config with main info, like DB name, default bet amount and etc.
 class DataStorage(metaclass=Singleton):
     def __init__(self):
         self._logger = logging.getLogger('Engine.DataStorage')
@@ -54,10 +55,14 @@ class DataStorage(metaclass=Singleton):
             else:
                 self._last_bet_id = 0
 
+            self._logger.info(f'Rates updates. Rate A: {self.rate_A}, Rate B: {self.rate_B}')
+
         self.basic_keyboard = json.dumps({'keyboard': [
                                                 [{'text': '/how_many'}, {'text': '/bet'}],
                                                 [{'text': '/help'}, {'text': '/status'}]],
                                           'resize_keyboard': True})
+
+        self._logger.info('DataStorage configured.')
 
     @staticmethod
     def _read_responses():
@@ -184,6 +189,9 @@ class DataStorage(metaclass=Singleton):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
             cursor.execute(f"SELECT ID from bets WHERE confirmed=1 AND category='{category}'")
+
+            self._logger.info('Successfully count confirmed bets.')
+
             return len(cursor.fetchall())
 
     def reset_bets(self):
@@ -196,6 +204,8 @@ class DataStorage(metaclass=Singleton):
 
         self.rate_A, self.rate_B = 'N/a', 'N/a'
         self._last_bet_id = 0
+
+        self._logger.info('Reset users bets and rates.')
 
     def get_user_bets(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
@@ -210,12 +220,14 @@ class DataStorage(metaclass=Singleton):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
             cursor.execute('SELECT chat_id from users')
+
             return [user_id[0] for user_id in cursor.fetchall()]
 
     def get_unconfirmed_bets_list(self):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
             cursor.execute('SELECT ID,user,category,wallet from bets WHERE confirmed=0')
+
             return [dict(bet_id=bet[0], chat_id=bet[1], wallet=bet[3], category=bet[2])
                     for bet in cursor.fetchall()]
 
@@ -225,6 +237,7 @@ class DataStorage(metaclass=Singleton):
             cursor.execute(f'UPDATE bets SET confirmed=1 WHERE ID={bet_id}')
             connection.commit()
 
+        self._logger.info(f'Bet confirmed, bet_id: {bet_id}')
         self._update_rates()
 
     def get_user_state(self, chat_id):
@@ -236,6 +249,7 @@ class DataStorage(metaclass=Singleton):
             if user_state:
                 if user_state[0] == 'NULL':
                     return None
+
                 return user_state[0]
 
     def set_user_state(self, new_state, chat_id):
@@ -249,12 +263,16 @@ class DataStorage(metaclass=Singleton):
 
             connection.commit()
 
+            self._logger.info(f'Set user state. chat_id: {chat_id}, state: {new_state}')
+
     def _set_last_wallet(self, chat_id, wallet):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
             cursor.execute(f"UPDATE users SET wallet='{wallet}' WHERE chat_id={chat_id}")
 
             connection.commit()
+
+        self._logger.info(f'Set last wallet. chat_id" {chat_id}, wallet: {wallet}')
 
     def get_last_wallet(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:

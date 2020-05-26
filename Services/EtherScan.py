@@ -49,8 +49,3 @@ class EtherScan:
                 result.append(transaction)
 
         return result
-
-#
-# scan = EtherScan()
-# result = scan._get_transactions('0x79289bb6b441cd337e2ad22b8f8202661d7b53f4')
-# pprint(result)
