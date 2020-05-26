@@ -69,8 +69,8 @@ class UpdateHandler:
             if state == 'wait_choice':
                 self._handle_user_choice(chat_id, message)
 
-            elif state == 'wait_choice_after_qr':
-                self._handle_user_choice_after_qr(chat_id, message)
+            elif state == 'wait_choice_after_vote':
+                self._handle_user_choice_after_vote(chat_id, message)
 
             elif state == 'use_previous_wallet?':
                 self._handle_wallet_choice(chat_id, message)
@@ -131,7 +131,7 @@ class UpdateHandler:
         else:
             self._sender.send_message(chat_id, self._data_storage.responses['incorrect_wallet_message']['ru'])
 
-    def _handle_user_choice_after_qr(self, chat_id, message):
+    def _handle_user_choice_after_vote(self, chat_id, message):
         if 'callback_query' in message:
             if message['callback_query']['data'] == 'next':
                 callback_query_id = message['callback_query']['id']
@@ -170,6 +170,26 @@ class UpdateHandler:
                 self._sender.answer_callback_query(chat_id, message['callback_query']['id'], None)
 
                 self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
+
+            elif message['callback_query']['data'] == 'qr':
+                self._sender.answer_callback_query(chat_id, message['callback_query']['id'], None)
+
+                last_bet_category = self._data_storage.get_last_bet_category(chat_id)
+
+                if last_bet_category == 'A':
+                    qr_link = self._ether_scan.get_qr_link(self._data_storage.A_wallet)
+                else:
+                    qr_link = self._ether_scan.get_qr_link(self._data_storage.B_wallet)
+
+                self._sender.send_photo(chat_id, qr_link,
+                                        reply_markup=json.dumps({'inline_keyboard': [[{'text': 'Далее',
+                                                                                       'callback_data': 'next'},
+                                                                                      {'text': 'Отменить',
+                                                                                       'callback_data': 'reject'}]],
+                                                                 'resize_keyboard': True}))
+
+                self._data_storage.set_user_state('wait_choice_after_vote', chat_id)
+
             else:
                 self._cancel_bet_process(chat_id, self._data_storage.responses['default_answer_text']['ru'])
 
@@ -190,24 +210,23 @@ class UpdateHandler:
                 .replace('{bet_amount}', str(self._data_storage.bet_amount)) \
                 .replace('{time_limit}', str(self._data_storage.time_limit))
 
-            self._sender.send_message(chat_id, message_after_choice)
+            self._sender.send_message(chat_id, message_after_choice, reply_markup=json.dumps({'hide_keyboard': True}))
 
             if category == 'A':
                 wallet = self._data_storage.A_wallet
-                qr_link = self._ether_scan.get_qr_link(self._data_storage.A_wallet)
             else:
                 wallet = self._data_storage.B_wallet
-                qr_link = self._ether_scan.get_qr_link(self._data_storage.B_wallet)
 
-            self._sender.send_message(chat_id, wallet, reply_markup=json.dumps({'hide_keyboard': True}))
-            self._sender.send_photo(chat_id, qr_link,
-                                    reply_markup=json.dumps({'inline_keyboard': [[{'text': 'Далее',
-                                                                                   'callback_data': 'next'},
-                                                                                  {'text': 'Отменить',
-                                                                                   'callback_data': 'reject'}]],
-                                                             'resize_keyboard': True}))
+            self._sender.send_message(chat_id, wallet,
+                                      reply_markup=json.dumps({'inline_keyboard': [[{'text': 'QR',
+                                                                                     'callback_data': 'qr'},
+                                                                                    {'text': 'Далее',
+                                                                                     'callback_data': 'next'}],
+                                                                                   [{'text': 'Отменить',
+                                                                                     'callback_data': 'reject'}]],
+                                                               'resize_keyboard': True}))
 
-            self._data_storage.set_user_state('wait_choice_after_qr', chat_id)
+            self._data_storage.set_user_state('wait_choice_after_vote', chat_id)
 
         elif 'message' in message and message['message']['text'] == 'Отменить':
             self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])

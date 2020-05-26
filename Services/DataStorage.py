@@ -240,6 +240,18 @@ class DataStorage(metaclass=Singleton):
         self._logger.info(f'Bet confirmed, bet_id: {bet_id}')
         self._update_rates()
 
+    def get_last_bet_category(self, chat_id):
+        with sqlite3.connect(self.__database_name) as connection:
+            cursor = connection.cursor()
+
+            cursor.execute(f'SELECT ID,category from bets where user={chat_id} and confirmed=-1')
+            bets_list = cursor.fetchall()
+
+            if bets_list:
+                return max(bets_list, key=lambda x: x[0])[1]
+            else:
+                return None
+
     def get_user_state(self, chat_id):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
