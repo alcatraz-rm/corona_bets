@@ -4,6 +4,7 @@ from string import ascii_letters
 import requests
 
 
+# TODO: put api token into environment variable and create config with links
 class EtherScan:
     def __init__(self):
         self._requests_url = 'http://api.etherscan.io/api'

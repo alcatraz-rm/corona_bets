@@ -276,6 +276,7 @@ class Engine:
         self._data_storage.fee = fee
 
         now = datetime.utcnow()
+
         tomorrow = date(now.year, now.month, now.day) + timedelta(days=1)
 
         # time limit - 6:00 GMT (9:00 MSK)

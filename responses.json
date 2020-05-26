@@ -97,7 +97,7 @@
   },
   "status_one_bet_message": {
     "en": null,
-    "ru": "Игра {bet_number}:\nКатегория: {category}, текущий коэффициент {rate}\nКошелёк: {wallet}\nСтатус: {status}\n\n"
+    "ru": "<b>Игра {bet_number}</b>:\nКатегория: {category}, текущий коэффициент {rate}\nКошелёк: {wallet}\nСтатус: {status}\n\n"
   },
   "no_active_bets_message": {
     "en": null,

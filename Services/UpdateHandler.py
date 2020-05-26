@@ -116,6 +116,10 @@ class UpdateHandler:
             self._cancel_bet_process(chat_id, self._data_storage.responses['default_answer_command']['ru'])
 
     def _check_wallet(self, chat_id, message):
+        if not 'message' in message:
+            print(message)
+            return
+
         wallet = message['message']['text']
 
         if wallet == 'Отменить':
