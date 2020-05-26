@@ -354,8 +354,8 @@ class Engine:
         else:
             self._sender.send_message(update['chat_id'], self._data_storage.responses['bet_confirmed_message']['ru']
                                       .replace('{bet_number}', str(bet_number))\
-                                      .replace('{category}', update["category"]))\
-                                      .replace('{rate}', str(rate)).replace('{wallet}', update["wallet"])
+                                      .replace('{category}', update["category"])\
+                                      .replace('{rate}', str(rate)).replace('{wallet}', update["wallet"]))
 
     def _handle_callback_query(self, update, bets_allowed):
         chat_id = update['callback_query']['from']['id']
