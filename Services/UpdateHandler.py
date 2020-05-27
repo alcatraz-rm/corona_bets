@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import timedelta
 import math
 
@@ -14,9 +15,12 @@ class UpdateHandler:
         self._admin_commands = ['/set_wallet_a', '/set_wallet_b', '/set_fee', '/set_vote_end_time']
 
         self._data_storage = DataStorage()
+        self._logger = logging.getLogger('Engine.UpdateHandler')
 
         self._sender = Sender(telegram_access_token)
         self._ether_scan = EtherScan()
+
+        self._logger.info('UpdateHandler configured.')
 
     def handle_text_message(self, message, bets_allowed=True):
         chat_id = message['message']['from']['id']
@@ -109,18 +113,22 @@ class UpdateHandler:
                                           reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
                                                                    'resize_keyboard': True}))
 
-        elif 'message' in message and message['message']['text'] == 'Отменить':
-            self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
+        elif 'message' in message:
+            if 'text' in message:
+                if message['message']['text'] == 'Отменить':
+                    self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
+            else:
+                self._logger.error(f'Incorrect message: {message}')
 
         else:
             self._cancel_bet_process(chat_id, self._data_storage.responses['default_answer_command']['ru'])
 
     def _check_wallet(self, chat_id, message):
-        if not 'message' in message:
-            print(message)
+        try:
+            wallet = message['message']['text']
+        except KeyError:
+            self._logger.error(f'Incorrect message: {message}')
             return
-
-        wallet = message['message']['text']
 
         if wallet == 'Отменить':
             self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
@@ -152,18 +160,19 @@ class UpdateHandler:
                                                   [{
                                                       'text': self._data_storage.responses['yes']['ru'],
                                                       'callback_data': 1},
-                                                   {
-                                                       'text': self._data_storage.responses['change']['ru'],
-                                                       'callback_data': 0}],
+                                                      {
+                                                          'text': self._data_storage.responses['change']['ru'],
+                                                          'callback_data': 0}],
                                                   [{
                                                       'text': 'Отменить',
                                                       'callback_data': -1}]],
-                                                                        'resize_keyboard': True}))
+                                                  'resize_keyboard': True}))
 
                     self._data_storage.set_user_state('use_previous_wallet?', chat_id)
                 else:
                     self._sender.send_message(chat_id,
-                                              self._data_storage.responses['enter_ether_wallet_first_time_message']['ru']
+                                              self._data_storage.responses['enter_ether_wallet_first_time_message'][
+                                                  'ru']
                                               .replace('{bet_amount}', str(self._data_storage.bet_amount)),
                                               reply_markup=json.dumps({'keyboard': [[{'text': 'Отменить'}]],
                                                                        'resize_keyboard': True}))
@@ -209,7 +218,7 @@ class UpdateHandler:
                                                self._data_storage.responses['you_voted_for_message']['ru']
                                                .replace('{category}', category))
 
-            message_after_choice = self._data_storage.responses['message_after_vote']['ru']\
+            message_after_choice = self._data_storage.responses['message_after_vote']['ru'] \
                 .replace('{category}', category) \
                 .replace('{bet_amount}', str(self._data_storage.bet_amount)) \
                 .replace('{time_limit}', str(self._data_storage.time_limit))
@@ -232,23 +241,32 @@ class UpdateHandler:
 
             self._data_storage.set_user_state('wait_choice_after_vote', chat_id)
 
-        elif 'message' in message and message['message']['text'] == 'Отменить':
-            self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
+        elif 'message' in message:
+            if 'text' in message:
+                if message['message']['text'] == 'Отменить':
+                    self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
+            else:
+                self._logger.error(f'Incorrect message: {message}')
 
         else:
             self._cancel_bet_process(chat_id, self._data_storage.responses['default_answer_text']['ru'])
 
     def _handle_bet_command(self, command):
-        chat_id = command['message']['from']['id']
+        try:
+            chat_id = command['message']['from']['id']
+        except KeyError:
+            self._logger.error(f'Error while trying to extract chat_id, incorrect command: {command}')
+            return
+
         rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
         announcement = self._data_storage.responses['announcement']['ru'] \
             .replace('{cases_day}', str(self._data_storage.cases_day)) \
             .replace('{control_value}', str(self._data_storage.control_value)) \
             .replace('{rate_A}', rate_A) \
-            .replace('{rate_B}', rate_B)\
-            .replace('{control_value + 1}', str(self._data_storage.control_value + 1))\
-            .replace('{bet_amount}', str(self._data_storage.bet_amount))\
+            .replace('{rate_B}', rate_B) \
+            .replace('{control_value + 1}', str(self._data_storage.control_value + 1)) \
+            .replace('{bet_amount}', str(self._data_storage.bet_amount)) \
             .replace('{time_limit}', str(self._data_storage.time_limit))
 
         self._sender.send_message(chat_id, announcement, reply_markup=json.dumps({'inline_keyboard': [
@@ -284,19 +302,19 @@ class UpdateHandler:
         message = self._data_storage.responses['help_message']['ru']
         rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
-        message = message.replace('{control_value}', str(self._data_storage.control_value))\
-                         .replace('{control_value + 1}', str(self._data_storage.control_value + 1))\
-                         .replace('{rate_A}', rate_A)\
-                         .replace('{rate_B}', rate_B)\
-                         .replace('{bet_amount}', str(self._data_storage.bet_amount))\
-                         .replace('{time_limit}', str(self._data_storage.time_limit))
+        message = message.replace('{control_value}', str(self._data_storage.control_value)) \
+            .replace('{control_value + 1}', str(self._data_storage.control_value + 1)) \
+            .replace('{rate_A}', rate_A) \
+            .replace('{rate_B}', rate_B) \
+            .replace('{bet_amount}', str(self._data_storage.bet_amount)) \
+            .replace('{time_limit}', str(self._data_storage.time_limit))
 
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
 
     def _handle_how_many_command(self, chat_id):
-        message = self._data_storage.responses['how_many_message']['ru']\
+        message = self._data_storage.responses['how_many_message']['ru'] \
             .replace('{cases_day}', str(self._data_storage.cases_day)) \
-            .replace('{cases_total}', str(self._data_storage.cases_total))\
+            .replace('{cases_total}', str(self._data_storage.cases_total)) \
             .replace('{time_limit}', str(self._data_storage.date - timedelta(hours=3)))
 
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
@@ -320,14 +338,14 @@ class UpdateHandler:
                 else:
                     rate = rate_B
 
-                status_message += self._data_storage.responses['status_one_bet_message']['ru']\
-                    .replace('{bet_number}', str(n + 1))\
-                    .replace('{category}', bet['category'])\
+                status_message += self._data_storage.responses['status_one_bet_message']['ru'] \
+                    .replace('{bet_number}', str(n + 1)) \
+                    .replace('{category}', bet['category']) \
                     .replace('{rate}', str(rate)).replace('{wallet}', bet['wallet']).replace('{status}', status)
 
             self._sender.send_message(chat_id, status_message,
                                       reply_markup=json.dumps({'keyboard': [
-                                                                    [{'text': '/bet'}, {'text': '/help'}]],
-                                                               'resize_keyboard': True}))
+                                          [{'text': '/bet'}, {'text': '/help'}]],
+                                          'resize_keyboard': True}))
         else:
             self._sender.send_message(chat_id, self._data_storage.responses['no_active_bets_message']['ru'])

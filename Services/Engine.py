@@ -11,6 +11,7 @@ from queue import Queue
 
 import requests
 
+from Services.RequestManager import RequestManager
 from Services.UpdateHandler import UpdateHandler
 from Services.DataStorage import DataStorage
 from Services.EtherScan import EtherScan
@@ -29,6 +30,7 @@ class Engine:
         self._statistics_parser = StatisticsParser()
         self._ether_scan = EtherScan()
         self._sender = Sender(telegram_access_token)
+        self._request_manager = RequestManager()
 
         self._data_storage = DataStorage()
         self._data_storage.update_statistics()
@@ -52,33 +54,21 @@ class Engine:
         self._logger.info('Logger configured.')
 
     def _get_updates(self, offset=None, timeout=30):
-        try:
-            updates = requests.get(self._requests_url + 'getUpdates', {'timeout': timeout, 'offset': offset}).json()
+        response = self._request_manager.request(self._requests_url + 'getUpdates',
+                                                 {'timeout': timeout, 'offset': offset})
 
-        except requests.exceptions.HTTPError as exception:
-            self._logger.error(exception.response)
-            return []
-
-        except requests.exceptions.ConnectTimeout as exception:
-            self._logger.error(exception.response)
-            return []
-
-        except requests.exceptions.Timeout as exception:
-            self._logger.error(exception.response)
-            return []
-
-        except requests.exceptions.ConnectionError as exception:
-            self._logger.error(exception.response)
-            return []
-
-        except requests.exceptions.RequestException as exception:
-            self._logger.error(exception.response)
+        if isinstance(response, requests.Response):
+            updates = response.json()
+        else:
+            self._logger.error(f'Error occurred in get_updates: {response}')
+            self._sender.send_message_to_creator(f'Error occurred in get_updates: {response}')
             return []
 
         if 'result' in updates:
             return updates['result']
         else:
-            self._logger.warning(f'Not result-key in updates: {updates}')
+            self._logger.error(f'Not result-key in updates: {updates}')
+            self._sender.send_message_to_creator(f'Not result-key in updates: {updates}')
             return []
 
     def _log_new_message(self, message):
@@ -90,6 +80,8 @@ class Engine:
         except KeyError as exception:
             self._logger.error(f'Logging error: {exception}\n'
                                f'Message that an error occurred during processing: {message}')
+            self._sender.send_message_to_creator(f'Logging error: {exception}\n'
+                                                 f'Message that an error occurred during processing: {message}')
             return
 
         log_message['from'] = {'chat_id': chat_id}
@@ -102,6 +94,8 @@ class Engine:
         except KeyError as exception:
             self._logger.error(f'Logging error: {exception}\n'
                                f'Message that an error occurred during processing: {message}')
+            self._sender.send_message_to_creator(f'Logging error: {exception}\n'
+                                                 f'Message that an error occurred during processing: {message}')
             return
 
         log_message['from']['name'] = name
@@ -116,6 +110,8 @@ class Engine:
         except KeyError as exception:
             self._logger.error(f'Logging error: {exception}\n'
                                f'Message that an error occurred during processing: {message}')
+            self._sender.send_message_to_creator(f'Logging error: {exception}\n'
+                                                 f'Message that an error occurred during processing: {message}')
             return
 
         self._logger.info(f'Get new update: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
@@ -127,6 +123,8 @@ class Engine:
         except KeyError as exception:
             self._logger.error(f'Logging error: {exception}\n'
                                f'Callback query that an error occurred during processing: {callback_query}')
+            self._sender.send_message_to_creator(f'Logging error: {exception}\n'
+                                                 f'Callback query that an error occurred during processing: {callback_query}')
             return
 
         try:
@@ -138,6 +136,8 @@ class Engine:
         except KeyError as exception:
             self._logger.error(f'Logging error: {exception}\n'
                                f'Callback query that an error occurred during processing: {callback_query}')
+            self._sender.send_message_to_creator(f'Logging error: {exception}\n'
+                                                 f'Callback query that an error occurred during processing: {callback_query}')
             return
 
         log_message['from']['name'] = name
@@ -152,6 +152,8 @@ class Engine:
         except KeyError as exception:
             self._logger.error(f'Logging error: {exception}\n'
                                f'Callback query that an error occurred during processing: {callback_query}')
+            self._sender.send_message_to_creator(f'Logging error: {exception}\n'
+                                                 f'Callback query that an error occurred during processing: {callback_query}')
             return
 
         self._logger.info(f'Get new update: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
@@ -163,6 +165,8 @@ class Engine:
             self._log_callback_query(update)
         else:
             self._logger.warning(f'Get new update (unknown type): {json.dumps(update, indent=4, ensure_ascii=False)}')
+            self._sender.send_message_to_creator(
+                f'Get new update (unknown type): {json.dumps(update, indent=4, ensure_ascii=False)}')
 
     def _wait(self):
         while True:
@@ -259,17 +263,17 @@ class Engine:
         users_ids_list = self._data_storage.get_users_ids_list()
         rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
-        timeout_message = self._data_storage.responses['timeout_message']['ru']\
+        timeout_message = self._data_storage.responses['timeout_message']['ru'] \
             .replace('{rate_A}', str(rate_A)).replace('{rate_B}', rate_B)
 
         for user_id in users_ids_list:
             self._sender.send_message(user_id, timeout_message)
 
     def _broadcast_new_round_message(self, winner, rate):
-        new_round_message = self._data_storage.responses['new_round_message']['ru']\
-            .replace('{winner}', str(winner)).replace('{rate}', str(rate))\
-            .replace('{cases_day}', str(self._data_storage.cases_day))\
-            .replace('{cases_total}', str(self._data_storage.cases_total))\
+        new_round_message = self._data_storage.responses['new_round_message']['ru'] \
+            .replace('{winner}', str(winner)).replace('{rate}', str(rate)) \
+            .replace('{cases_day}', str(self._data_storage.cases_day)) \
+            .replace('{cases_total}', str(self._data_storage.cases_total)) \
             .replace('{last_update_time}', str(self._data_storage.date))
 
         users = self._data_storage.get_users_ids_list()
@@ -294,14 +298,14 @@ class Engine:
             if bet['confirmed'] and bet['category'] == winner:
                 current_amount = self._data_storage.bet_amount * rate
 
-                message += self._data_storage.responses['win_message_one_bet']['ru'].replace('{bet_number}', str(n))\
-                    .replace('{wallet}', bet['wallet'])\
+                message += self._data_storage.responses['win_message_one_bet']['ru'].replace('{bet_number}', str(n)) \
+                    .replace('{wallet}', bet['wallet']) \
                     .replace('{amount}', str(math.trunc(current_amount * 1000) / 1000))
 
                 total_amount += current_amount
 
         if total_amount > 0:
-            return message + self._data_storage.responses['win_message_total_amount']['ru']\
+            return message + self._data_storage.responses['win_message_total_amount']['ru'] \
                 .replace('{amount}', str(math.trunc(total_amount * 1000) / 1000))
 
     def _configure_first_time(self):
@@ -366,6 +370,9 @@ class Engine:
         except KeyError as exception:
             self._logger.error(f'Error occurred while trying to extract user data from update: {exception}\n'
                                f'Update: {update}')
+            self._sender.send_message_to_creator(
+                f'Error occurred while trying to extract user data from update: {exception}\n'
+                f'Update: {update}')
             return defaults
 
         try:
@@ -376,6 +383,9 @@ class Engine:
         except KeyError as exception:
             self._logger.error(f'Error occurred while trying to extract user data from update: {exception}\n'
                                f'Update: {update}')
+            self._sender.send_message_to_creator(
+                f'Error occurred while trying to extract user data from update: {exception}\n'
+                f'Update: {update}')
             return defaults
 
         return name, login
@@ -394,6 +404,7 @@ class Engine:
                 self._update_handler.handle_text_message(message)
         else:
             self._logger.error(f'Invalid message structure: {message}')
+            self._sender.send_message_to_creator(f'Invalid message structure: {message}')
 
     def _handle_bet_verifying_update(self, update):
         user_state = self._data_storage.get_user_state(update['chat_id'])
@@ -416,8 +427,8 @@ class Engine:
                 self._updates_queue.put(update)
         else:
             self._sender.send_message(update['chat_id'], self._data_storage.responses['bet_confirmed_message']['ru']
-                                      .replace('{bet_number}', str(bet_number))\
-                                      .replace('{category}', update["category"])\
+                                      .replace('{bet_number}', str(bet_number)) \
+                                      .replace('{category}', update["category"]) \
                                       .replace('{rate}', str(rate)).replace('{wallet}', update["wallet"]))
 
     def _handle_callback_query(self, update, bets_allowed):
@@ -431,6 +442,7 @@ class Engine:
                 self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
         except KeyError:
             self._logger.error(f'Invalid callback_query structure: {update}')
+            self._sender.send_message_to_creator(f'Invalid callback_query structure: {update}')
 
     def _updates_handling(self, bets_allowed=True):
         while True:
