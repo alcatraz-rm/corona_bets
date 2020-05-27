@@ -55,7 +55,7 @@ class Engine:
 
     def _get_updates(self, offset=None, timeout=30):
         response = self._request_manager.request(self._requests_url + 'getUpdates',
-                                                 {'timeout': timeout, 'offset': offset})
+                                                 {'timeout': timeout, 'offset': offset}, method='get')
 
         if isinstance(response, requests.Response):
             updates = response.json()
