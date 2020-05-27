@@ -52,7 +52,28 @@ class Engine:
         self._logger.info('Logger configured.')
 
     def _get_updates(self, offset=None, timeout=30):
-        updates = requests.get(self._requests_url + 'getUpdates', {'timeout': timeout, 'offset': offset}).json()
+        try:
+            updates = requests.get(self._requests_url + 'getUpdates', {'timeout': timeout, 'offset': offset}).json()
+
+        except requests.exceptions.HTTPError as exception:
+            self._logger.error(exception.response)
+            return []
+
+        except requests.exceptions.ConnectTimeout as exception:
+            self._logger.error(exception.response)
+            return []
+
+        except requests.exceptions.Timeout as exception:
+            self._logger.error(exception.response)
+            return []
+
+        except requests.exceptions.ConnectionError as exception:
+            self._logger.error(exception.response)
+            return []
+
+        except requests.exceptions.RequestException as exception:
+            self._logger.error(exception.response)
+            return []
 
         if 'result' in updates:
             return updates['result']
@@ -61,47 +82,77 @@ class Engine:
             return []
 
     def _log_new_message(self, message):
-        if not 'message' in message or not 'text' in message['message']:
-            self._logger.info(message)
-            return
-
         log_message = {'type': 'message'}
 
-        chat_id = message['message']['from']['id']
+        try:
+            chat_id = message['message']['from']['id']
+
+        except KeyError as exception:
+            self._logger.error(f'Logging error: {exception}\n'
+                               f'Message that an error occurred during processing: {message}')
+            return
+
         log_message['from'] = {'chat_id': chat_id}
 
-        if 'last_name' in message['message']['from']:
-            name = f"{message['message']['from']['first_name']} {message['message']['from']['last_name']}"
-        else:
-            name = f"{message['message']['from']['first_name']}"
+        try:
+            if 'last_name' in message['message']['from']:
+                name = f"{message['message']['from']['first_name']} {message['message']['from']['last_name']}"
+            else:
+                name = f"{message['message']['from']['first_name']}"
+        except KeyError as exception:
+            self._logger.error(f'Logging error: {exception}\n'
+                               f'Message that an error occurred during processing: {message}')
+            return
 
         log_message['from']['name'] = name
 
-        if 'username' in message['message']['from']:
-            log_message['from']['username'] = message['message']['from']['username']
+        try:
+            if 'username' in message['message']['from']:
+                log_message['from']['username'] = message['message']['from']['username']
 
-        log_message['text'] = message['message']['text']
-        log_message['update_id'] = message['update_id']
+            log_message['text'] = message['message']['text']
+            log_message['update_id'] = message['update_id']
+
+        except KeyError as exception:
+            self._logger.error(f'Logging error: {exception}\n'
+                               f'Message that an error occurred during processing: {message}')
+            return
 
         self._logger.info(f'Get new update: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
 
     def _log_callback_query(self, callback_query):
-        log_message = {'type': 'callback_query', 'from': {'chat_id': callback_query['callback_query']['from']['id']}}
+        try:
+            log_message = {'type': 'callback_query',
+                           'from': {'chat_id': callback_query['callback_query']['from']['id']}}
+        except KeyError as exception:
+            self._logger.error(f'Logging error: {exception}\n'
+                               f'Callback query that an error occurred during processing: {callback_query}')
+            return
 
-        if 'last_name' in callback_query['callback_query']['from']:
-            name = f"{callback_query['callback_query']['from']['first_name']} " \
-                   f"{callback_query['callback_query']['from']['last_name']}"
-        else:
-            name = f"{callback_query['callback_query']['from']['first_name']}"
+        try:
+            if 'last_name' in callback_query['callback_query']['from']:
+                name = f"{callback_query['callback_query']['from']['first_name']} " \
+                       f"{callback_query['callback_query']['from']['last_name']}"
+            else:
+                name = f"{callback_query['callback_query']['from']['first_name']}"
+        except KeyError as exception:
+            self._logger.error(f'Logging error: {exception}\n'
+                               f'Callback query that an error occurred during processing: {callback_query}')
+            return
 
         log_message['from']['name'] = name
 
         if 'username' in callback_query['callback_query']['from']:
             log_message['from']['username'] = callback_query['callback_query']['from']['username']
 
-        log_message['update_id'] = callback_query['update_id']
-        log_message['callback_query_id'] = callback_query['callback_query']['id']
-        log_message['data'] = callback_query['callback_query']['data']
+        try:
+            log_message['update_id'] = callback_query['update_id']
+            log_message['callback_query_id'] = callback_query['callback_query']['id']
+            log_message['data'] = callback_query['callback_query']['data']
+        except KeyError as exception:
+            self._logger.error(f'Logging error: {exception}\n'
+                               f'Callback query that an error occurred during processing: {callback_query}')
+            return
 
         self._logger.info(f'Get new update: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
 
@@ -304,17 +355,28 @@ class Engine:
 
                 offset = update['update_id'] + 1
 
-    @staticmethod
-    def _extract_user_data_from_message(update):
-        if 'last_name' in update['message']['from']:
-            name = f"{update['message']['from']['first_name']} {update['message']['from']['last_name']}"
-        else:
-            name = f"{update['message']['from']['first_name']}"
+    def _extract_user_data_from_message(self, update):
+        defaults = 'Unknown', 'Unknown'
 
-        if 'username' in update['message']['from']:
-            login = update['message']['from']['username']
-        else:
-            login = None
+        try:
+            if 'last_name' in update['message']['from']:
+                name = f"{update['message']['from']['first_name']} {update['message']['from']['last_name']}"
+            else:
+                name = f"{update['message']['from']['first_name']}"
+        except KeyError as exception:
+            self._logger.error(f'Error occurred while trying to extract user data from update: {exception}\n'
+                               f'Update: {update}')
+            return defaults
+
+        try:
+            if 'username' in update['message']['from']:
+                login = update['message']['from']['username']
+            else:
+                login = None
+        except KeyError as exception:
+            self._logger.error(f'Error occurred while trying to extract user data from update: {exception}\n'
+                               f'Update: {update}')
+            return defaults
 
         return name, login
 
@@ -331,7 +393,7 @@ class Engine:
             else:
                 self._update_handler.handle_text_message(message)
         else:
-            print(message)
+            self._logger.error(f'Invalid message structure: {message}')
 
     def _handle_bet_verifying_update(self, update):
         user_state = self._data_storage.get_user_state(update['chat_id'])
@@ -339,7 +401,7 @@ class Engine:
 
         rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
-        if update["category"] == 'A':
+        if update['category'] == 'A':
             rate = rate_A
         else:
             rate = rate_B
@@ -359,13 +421,16 @@ class Engine:
                                       .replace('{rate}', str(rate)).replace('{wallet}', update["wallet"]))
 
     def _handle_callback_query(self, update, bets_allowed):
-        chat_id = update['callback_query']['from']['id']
-        state = self._data_storage.get_user_state(chat_id)
+        try:
+            chat_id = update['callback_query']['from']['id']
+            state = self._data_storage.get_user_state(chat_id)
 
-        if state:
-            self._update_handler.handle_user_state(chat_id, state, update, bets_allowed)
-        else:
-            self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
+            if state:
+                self._update_handler.handle_user_state(chat_id, state, update, bets_allowed)
+            else:
+                self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
+        except KeyError:
+            self._logger.error(f'Invalid callback_query structure: {update}')
 
     def _updates_handling(self, bets_allowed=True):
         while True:
@@ -388,6 +453,9 @@ class Engine:
 
                 elif 'bet_id' in update:
                     self._handle_bet_verifying_update(update)
+
+                else:
+                    self._logger.warning(f'Get invalid update: {update}')
 
     def _bets_confirming(self):
         while True:

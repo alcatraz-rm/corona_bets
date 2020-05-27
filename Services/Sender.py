@@ -14,6 +14,10 @@ class Sender:
     def _log_telegram_response(self, response):
         result = {'ok': response['ok']}
 
+        if not 'result' in response or not 'chat' in response['result']:
+            self._logger.warning(response)
+            return
+
         if 'username' in response['result']['chat']:
             result['to'] = {'chat_id': response['result']['chat']['id'],
                             'username': response['result']['chat']['username'],
