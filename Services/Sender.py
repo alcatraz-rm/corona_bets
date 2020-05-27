@@ -65,6 +65,7 @@ class Sender:
             else:
                 self._logger.error(f'Error occurred during sending photo: {response}')
                 self.send_message_to_creator(f'Error occurred during sending photo: {response}')
+                return
         else:
             response = self._request_manager.request(self._requests_url + 'sendPhoto',
                                                      {'chat_id': chat_id, 'photo': photo}, method='post')
@@ -74,6 +75,7 @@ class Sender:
             else:
                 self._logger.error(f'Error occurred during sending photo: {response}')
                 self.send_message_to_creator(f'Error occurred during sending photo: {response}')
+                return
 
         self._logger.info(response.json())
 
@@ -89,6 +91,7 @@ class Sender:
             else:
                 self._logger.error(f'Error occurred during sending message: {response}')
                 self.send_message_to_creator(f'Error occurred during sending message: {response}')
+                return
         else:
             response = self._request_manager.request(self._requests_url + 'sendMessage',
                                                      params={'chat_id': chat_id, 'text': text,
@@ -99,6 +102,7 @@ class Sender:
             else:
                 self._logger.error(f'Error occurred during sending message: {response}')
                 self.send_message_to_creator(f'Error occurred during sending message: {response}')
+                return
 
         self._log_telegram_response(response.json())
 

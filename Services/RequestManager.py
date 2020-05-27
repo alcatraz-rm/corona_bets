@@ -1,17 +1,20 @@
 import requests
+from requests.adapters import HTTPAdapter
 
 
 class RequestManager:
     def __init__(self):
-        pass
+        self._basic_http_adapter = HTTPAdapter(max_retries=5)
+        self._session = requests.Session()
+        self._basic_timeout = 45
+        self._session.mount('https://api.telegram.org', self._basic_http_adapter)
 
-    @staticmethod
-    def request(url, params, method):
+    def request(self, url, params, method):
         try:
             if method == 'get':
-                return requests.get(url, params)
+                return self._session.get(url, params=params, timeout=self._basic_timeout)
             elif method == 'post':
-                return requests.post(url, params)
+                return self._session.post(url, params=params, timeout=self._basic_timeout)
             else:
                 return 'Invalid http-method.'
 

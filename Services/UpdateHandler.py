@@ -114,7 +114,7 @@ class UpdateHandler:
                                                                    'resize_keyboard': True}))
 
         elif 'message' in message:
-            if 'text' in message:
+            if 'text' in message['message']:
                 if message['message']['text'] == 'Отменить':
                     self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
             else:
@@ -242,7 +242,7 @@ class UpdateHandler:
             self._data_storage.set_user_state('wait_choice_after_vote', chat_id)
 
         elif 'message' in message:
-            if 'text' in message:
+            if 'text' in message['message']:
                 if message['message']['text'] == 'Отменить':
                     self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
             else:
