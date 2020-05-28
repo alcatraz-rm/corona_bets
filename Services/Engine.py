@@ -11,16 +11,16 @@ from queue import Queue
 
 import requests
 
-from Services.RequestManager import RequestManager
-from Services.UpdateHandler import UpdateHandler
 from Services.DataStorage import DataStorage
 from Services.EtherScan import EtherScan
-from Services.StatisticsParser import StatisticsParser
+from Services.RequestManager import RequestManager
 from Services.Sender import Sender
+from Services.StatisticsParser import StatisticsParser
+from Services.UpdateHandler import UpdateHandler
 
 
 class Engine:
-    def __init__(self, telegram_access_token):
+    def __init__(self, telegram_access_token: str):
         self._logger = logging.getLogger('Engine')
         self._configure_logger()
 
@@ -28,7 +28,7 @@ class Engine:
 
         self._update_handler = UpdateHandler(telegram_access_token)
         self._statistics_parser = StatisticsParser()
-        self._ether_scan = EtherScan()
+        self._ether_scan = EtherScan(telegram_access_token)
         self._sender = Sender(telegram_access_token)
         self._request_manager = RequestManager()
 
@@ -53,7 +53,7 @@ class Engine:
 
         self._logger.info('Logger configured.')
 
-    def _get_updates(self, offset=None, timeout=30):
+    def _get_updates(self, offset=None, timeout=30) -> list:
         response = self._request_manager.request(self._requests_url + 'getUpdates',
                                                  {'timeout': timeout, 'offset': offset}, method='get')
 
@@ -71,7 +71,7 @@ class Engine:
             self._sender.send_message_to_creator(f'Not result-key in updates: {updates}')
             return []
 
-    def _log_new_message(self, message):
+    def _log_new_message(self, message: dict):
         log_message = {'type': 'message'}
 
         try:
@@ -116,7 +116,7 @@ class Engine:
 
         self._logger.info(f'Get new update: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
 
-    def _log_callback_query(self, callback_query):
+    def _log_callback_query(self, callback_query: dict):
         try:
             log_message = {'type': 'callback_query',
                            'from': {'chat_id': callback_query['callback_query']['from']['id']}}
@@ -158,7 +158,7 @@ class Engine:
 
         self._logger.info(f'Get new update: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
 
-    def _log_telegram_update(self, update):
+    def _log_telegram_update(self, update: dict):
         if 'message' in update:
             self._log_new_message(update)
         elif 'callback_query' in update:
@@ -247,7 +247,7 @@ class Engine:
             self._broadcast_new_round_message(winner, rate)
             self._configure_new_round(new_control_value)
 
-    def _configure_new_round(self, new_control_value):
+    def _configure_new_round(self, new_control_value: int):
         self._data_storage.reset_bets()
 
         now = datetime.utcnow()
@@ -269,7 +269,7 @@ class Engine:
         for user_id in users_ids_list:
             self._sender.send_message(user_id, timeout_message)
 
-    def _broadcast_new_round_message(self, winner, rate):
+    def _broadcast_new_round_message(self, winner: str, rate: float):
         new_round_message = self._data_storage.responses['new_round_message']['ru'] \
             .replace('{winner}', str(winner)).replace('{rate}', str(rate)) \
             .replace('{cases_day}', str(self._data_storage.cases_day)) \
@@ -290,7 +290,7 @@ class Engine:
 
     # TODO: optimize this (you may not form all message, before you should try ro find one verified bet
     #  with required category
-    def _generate_win_message(self, bet_list, winner, rate):
+    def _generate_win_message(self, bet_list: list, winner: str, rate: float):
         total_amount = 0.0
         message = ''
 
@@ -359,7 +359,7 @@ class Engine:
 
                 offset = update['update_id'] + 1
 
-    def _extract_user_data_from_message(self, update):
+    def _extract_user_data_from_message(self, update: dict) -> (str, str):
         defaults = 'Unknown', 'Unknown'
 
         try:
@@ -373,6 +373,7 @@ class Engine:
             self._sender.send_message_to_creator(
                 f'Error occurred while trying to extract user data from update: {exception}\n'
                 f'Update: {update}')
+
             return defaults
 
         try:
@@ -386,11 +387,12 @@ class Engine:
             self._sender.send_message_to_creator(
                 f'Error occurred while trying to extract user data from update: {exception}\n'
                 f'Update: {update}')
+
             return defaults
 
         return name, login
 
-    def _handle_message(self, message, bets_allowed):
+    def _handle_message(self, message: dict, bets_allowed: bool):
         if 'message' in message and 'text' in message['message']:
             chat_id = message['message']['from']['id']
 
@@ -406,7 +408,7 @@ class Engine:
             self._logger.error(f'Invalid message structure: {message}')
             self._sender.send_message_to_creator(f'Invalid message structure: {message}')
 
-    def _handle_bet_verifying_update(self, update):
+    def _handle_bet_verifying_update(self, update: dict):
         user_state = self._data_storage.get_user_state(update['chat_id'])
         bets_list = self._data_storage.get_user_bets(update['chat_id'])
 
@@ -431,7 +433,7 @@ class Engine:
                                       .replace('{category}', update["category"]) \
                                       .replace('{rate}', str(rate)).replace('{wallet}', update["wallet"]))
 
-    def _handle_callback_query(self, update, bets_allowed):
+    def _handle_callback_query(self, update: dict, bets_allowed: bool):
         try:
             chat_id = update['callback_query']['from']['id']
             state = self._data_storage.get_user_state(chat_id)
@@ -440,6 +442,7 @@ class Engine:
                 self._update_handler.handle_user_state(chat_id, state, update, bets_allowed)
             else:
                 self._sender.answer_callback_query(chat_id, update['callback_query']['id'], '')
+
         except KeyError:
             self._logger.error(f'Invalid callback_query structure: {update}')
             self._sender.send_message_to_creator(f'Invalid callback_query structure: {update}')

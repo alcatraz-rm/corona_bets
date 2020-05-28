@@ -1,15 +1,15 @@
 import json
 import logging
-from datetime import timedelta
 import math
+from datetime import timedelta
 
-from Services.Sender import Sender
-from Services.EtherScan import EtherScan
 from Services.DataStorage import DataStorage
+from Services.EtherScan import EtherScan
+from Services.Sender import Sender
 
 
 class UpdateHandler:
-    def __init__(self, telegram_access_token):
+    def __init__(self, telegram_access_token: str):
         self._info_command_types = ['/start', '/help', '/how_many', '/status']
         self._action_command_types = ['/bet']
         self._admin_commands = ['/set_wallet_a', '/set_wallet_b', '/set_fee', '/set_vote_end_time']
@@ -22,8 +22,14 @@ class UpdateHandler:
 
         self._logger.info('UpdateHandler configured.')
 
-    def handle_text_message(self, message, bets_allowed=True):
-        chat_id = message['message']['from']['id']
+    def handle_text_message(self, message: dict, bets_allowed=True):
+        try:
+            chat_id = message['message']['from']['id']
+        except KeyError:
+            self._logger.error(f'Incorrect message structure: {message}')
+            self._sender.send_message_to_creator(f'Incorrect message structure: {message}')
+            return
+
         user_state = self._data_storage.get_user_state(chat_id)
 
         if user_state:
@@ -33,7 +39,8 @@ class UpdateHandler:
         self._sender.send_message(chat_id, self._data_storage.responses['default_answer_text'],
                                   reply_markup=self._data_storage.basic_keyboard)
 
-    def handle_command(self, command, bets_allowed):
+    def handle_command(self, command: dict, bets_allowed: bool):
+        # TODO: add KeyError catching
         chat_id = command['message']['from']['id']
         command_type = command['message']['text'].split()
 
@@ -68,7 +75,7 @@ class UpdateHandler:
         else:
             self._sender.send_message(chat_id, self._data_storage.responses['default_answer_command']['ru'])
 
-    def handle_user_state(self, chat_id, state, message, bets_allowed=True):
+    def handle_user_state(self, chat_id: int, state: str, message: dict, bets_allowed=True):
         if bets_allowed:
             if state == 'wait_choice':
                 self._handle_user_choice(chat_id, message)
@@ -84,16 +91,16 @@ class UpdateHandler:
         else:
             self._sender.send_message(chat_id, self._data_storage.responses['bet_timeout_message']['ru'])
 
-    def _cancel_bet_process(self, chat_id, message):
+    def _cancel_bet_process(self, chat_id: int, message: str):
         self._data_storage.remove_last_bet(chat_id)
 
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
         self._data_storage.set_user_state(None, chat_id)
 
-    def _handle_wallet_choice(self, chat_id, message):
+    def _handle_wallet_choice(self, chat_id: int, message: dict):
         if 'callback_query' in message:
             use_previous_wallet = int(message['callback_query']['data'])
-            self._sender.answer_callback_query(chat_id, message['callback_query']['id'], None)
+            self._sender.answer_callback_query(chat_id, message['callback_query']['id'], '')
 
             if use_previous_wallet == -1:  # -1 means that user cancel bet process
                 self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
@@ -123,7 +130,7 @@ class UpdateHandler:
         else:
             self._cancel_bet_process(chat_id, self._data_storage.responses['default_answer_command']['ru'])
 
-    def _check_wallet(self, chat_id, message):
+    def _check_wallet(self, chat_id: int, message: dict):
         try:
             wallet = message['message']['text']
         except KeyError:
@@ -143,7 +150,7 @@ class UpdateHandler:
         else:
             self._sender.send_message(chat_id, self._data_storage.responses['incorrect_wallet_message']['ru'])
 
-    def _handle_user_choice_after_vote(self, chat_id, message):
+    def _handle_user_choice_after_vote(self, chat_id: int, message: dict):
         if 'callback_query' in message:
             if message['callback_query']['data'] == 'next':
                 callback_query_id = message['callback_query']['id']
@@ -180,12 +187,12 @@ class UpdateHandler:
                     self._data_storage.set_user_state('wait_wallet', chat_id)
 
             elif message['callback_query']['data'] == 'reject':
-                self._sender.answer_callback_query(chat_id, message['callback_query']['id'], None)
+                self._sender.answer_callback_query(chat_id, message['callback_query']['id'], '')
 
                 self._cancel_bet_process(chat_id, self._data_storage.responses['bet_rejected_message']['ru'])
 
             elif message['callback_query']['data'] == 'qr':
-                self._sender.answer_callback_query(chat_id, message['callback_query']['id'], None)
+                self._sender.answer_callback_query(chat_id, message['callback_query']['id'], '')
 
                 last_bet_category = self._data_storage.get_last_bet_category(chat_id)
 
@@ -251,7 +258,7 @@ class UpdateHandler:
         else:
             self._cancel_bet_process(chat_id, self._data_storage.responses['default_answer_text']['ru'])
 
-    def _handle_bet_command(self, command):
+    def _handle_bet_command(self, command: dict):
         try:
             chat_id = command['message']['from']['id']
         except KeyError:
@@ -281,7 +288,7 @@ class UpdateHandler:
         self._data_storage.set_user_state('wait_choice', chat_id)
 
     @staticmethod
-    def represent_rates(rate_A, rate_B):
+    def represent_rates(rate_A, rate_B) -> (str, str):
         if rate_A != 'N/a' and rate_B != 'N/a':
             return str(math.trunc(rate_A * 1000) / 1000), str(math.trunc(rate_B * 1000) / 1000)
 
@@ -294,11 +301,11 @@ class UpdateHandler:
         else:
             return str(rate_A), str(rate_B)
 
-    def _handle_start_command(self, chat_id):
+    def _handle_start_command(self, chat_id: int):
         self._sender.send_message(chat_id, self._data_storage.responses['start_message']['ru'],
                                   reply_markup=self._data_storage.basic_keyboard)
 
-    def _handle_help_command(self, chat_id):
+    def _handle_help_command(self, chat_id: int):
         message = self._data_storage.responses['help_message']['ru']
         rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
@@ -311,7 +318,7 @@ class UpdateHandler:
 
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
 
-    def _handle_how_many_command(self, chat_id):
+    def _handle_how_many_command(self, chat_id: int):
         message = self._data_storage.responses['how_many_message']['ru'] \
             .replace('{cases_day}', str(self._data_storage.cases_day)) \
             .replace('{cases_total}', str(self._data_storage.cases_total)) \
@@ -319,7 +326,7 @@ class UpdateHandler:
 
         self._sender.send_message(chat_id, message, reply_markup=self._data_storage.basic_keyboard)
 
-    def _handle_status_command(self, chat_id):
+    def _handle_status_command(self, chat_id: int):
         bet_list = self._data_storage.get_user_bets(chat_id)
         rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 

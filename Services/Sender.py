@@ -7,14 +7,14 @@ from Services.RequestManager import RequestManager
 
 
 class Sender:
-    def __init__(self, telegram_access_token):
+    def __init__(self, telegram_access_token: str):
         self._logger = logging.getLogger('Engine.Sender')
         self._request_manager = RequestManager()
         self._requests_url = f'https://api.telegram.org/bot{telegram_access_token}/'
 
         self._logger.info('Sender initialized.')
 
-    def _log_telegram_response(self, response):
+    def _log_telegram_response(self, response: dict):
         result = {'ok': response['ok']}
 
         if not 'result' in response or not 'chat' in response['result']:
@@ -31,7 +31,7 @@ class Sender:
 
         self._logger.info(f'Sent: {json.dumps(result, indent=4, ensure_ascii=False)}')
 
-    def answer_callback_query(self, chat_id, callback_query_id, text):
+    def answer_callback_query(self, chat_id: int, callback_query_id: int, text: str):
         if text:
             response = self._request_manager.request(self._requests_url + 'answerCallbackQuery',
                                                      {'chat_id': chat_id, 'callback_query_id': callback_query_id,
@@ -54,7 +54,7 @@ class Sender:
                 self._logger.error(f'Error occurred during answering callback query: {response}')
                 self.send_message_to_creator(f'Error occurred during answering callback query: {response}')
 
-    def send_photo(self, chat_id, photo, reply_markup=None):
+    def send_photo(self, chat_id: int, photo, reply_markup=None):
         if reply_markup:
             response = self._request_manager.request(self._requests_url + 'sendPhoto',
                                                      {'chat_id': chat_id, 'photo': photo,
@@ -79,7 +79,7 @@ class Sender:
 
         self._logger.info(response.json())
 
-    def send_message(self, chat_id, text, reply_markup=None, parse_mode='HTML'):
+    def send_message(self, chat_id: int, text: str, reply_markup=None, parse_mode='HTML'):
         if reply_markup:
             response = self._request_manager.request(self._requests_url + 'sendMessage',
                                                      params={'chat_id': chat_id, 'text': text,
@@ -106,8 +106,8 @@ class Sender:
 
         self._log_telegram_response(response.json())
 
-    def send_message_to_creator(self, message):
-        creator_id = 187289003
+    def send_message_to_creator(self, message: str):
+        creator_id = 187289003  # Add this value as environment variable
 
         self._request_manager.request(self._requests_url + 'sendMessage',
                                       params={'chat_id': creator_id, 'text': message}, method='post')

@@ -9,7 +9,7 @@ class RequestManager:
         self._basic_timeout = 45
         self._session.mount('https://api.telegram.org', self._basic_http_adapter)
 
-    def request(self, url, params, method):
+    def request(self, url: str, params: dict, method: str):
         try:
             if method == 'get':
                 return self._session.get(url, params=params, timeout=self._basic_timeout)
