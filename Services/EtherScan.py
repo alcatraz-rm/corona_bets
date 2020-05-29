@@ -43,7 +43,7 @@ class EtherScan:
 
     def _get_transactions(self, address):
         params = {'module': 'account', 'action': 'txlist', 'address': address, 'start_block': 0,
-                  'end_block': 99999999, 'page': 1, 'offset': 20, 'sort': 'desc', 'apikey': self._api_key}
+                  'end_block': 99999999, 'page': 1, 'offset': 1000, 'sort': 'desc', 'apikey': self._api_key}
 
         response = self._request_manager.request(self._requests_url, params, 'get')
 
@@ -59,16 +59,83 @@ class EtherScan:
             return []
 
     # TODO: remember incorrect transactions
-    def check_transactions(self, address, from_, to):
+    def find_valid_transaction(self, address, from_, to):
         transaction_list = self._filter_transactions(from_, to, self._get_transactions(address))
-        pprint(transaction_list)
+        transaction_list = self._filter_incorrect_transactions(transaction_list)
 
-    @staticmethod
-    def _filter_transactions(from_, to, transaction_list):
+        # TODO: maybe add timestamp filter
+        if len(transaction_list) > 0:
+            valid_transaction = transaction_list[0]
+            transaction_id = self._data_storage.add_transaction(valid_transaction['amount'], valid_transaction['hash'],
+                                                                valid_transaction['from'], valid_transaction['to'], 1)
+
+            return transaction_id
+
+        return -1
+
+    def _filter_transactions(self, to, transaction_list):
+        result = []
+        transaction_list = self._filter_incorrect_transactions(transaction_list)
+
+        for transaction in transaction_list:
+            if transaction['to'] == to and self._data_storage.is_new_transaction(transaction['hash']):
+                result.append(transaction)
+
+        return result
+
+    def confirm_bets(self, chat_id: int):
+        confirmed_bets = []
+
+        bets_list = self._data_storage.get_unconfirmed_bets(chat_id)
+        bets_by_wallets = {}
+
+        if not bets_list:
+            return
+
+        for bet in bets_list:
+            if bet['wallet'] not in bets_by_wallets:
+                bets_by_wallets[bet['wallet']] = []
+
+            bets_by_wallets[bet['wallet']].append(bet)
+
+        for wallet in bets_by_wallets:
+            transactions_list = self._get_transactions(wallet)
+            correct_transactions_to_A = self._filter_transactions(self._data_storage.A_wallet, transactions_list)
+            correct_transactions_to_B = self._filter_transactions(self._data_storage.B_wallet, transactions_list)
+
+            for bet in bets_by_wallets[wallet]:
+                if bet['category'] == 'A' and len(correct_transactions_to_A) > 0:
+                    correct_transaction = correct_transactions_to_A[0]
+                    transaction_id = self._data_storage.add_transaction(correct_transaction['amount'],
+                                                                        correct_transaction['hash'], wallet,
+                                                                        correct_transaction['to'], 1)
+                    self._data_storage.confirm_bet(bet['bet_id'], transaction_id)
+                    del(correct_transactions_to_A[0])
+                    confirmed_bets.append(bet)
+
+                elif len(correct_transactions_to_B) > 0:
+                    correct_transaction = correct_transactions_to_B[0]
+                    transaction_id = self._data_storage.add_transaction(correct_transaction['amount'],
+                                                                        correct_transaction['hash'], wallet,
+                                                                        correct_transaction['to'], 1)
+                    self._data_storage.confirm_bet(bet['bet_id'], transaction_id)
+                    del(correct_transactions_to_B[0])
+                    confirmed_bets.append(bet)
+
+                else:
+                    break
+
+        return confirmed_bets
+
+    def _filter_incorrect_transactions(self, transaction_list: list) -> list:
         result = []
 
         for transaction in transaction_list:
-            if transaction['from'] == from_ and transaction['to'] == to:
+            if transaction['amount'] != self._data_storage.bet_amount:
+                if self._data_storage.is_new_transaction(transaction['hash']):
+                    self._data_storage.add_transaction(transaction['amount'], transaction['hash'], transaction['from'],
+                                                       transaction['to'], 0)
+            else:
                 result.append(transaction)
 
         return result

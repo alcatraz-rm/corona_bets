@@ -18,7 +18,7 @@ class UpdateHandler:
         self._logger = logging.getLogger('Engine.UpdateHandler')
 
         self._sender = Sender(telegram_access_token)
-        self._ether_scan = EtherScan()
+        self._ether_scan = EtherScan(telegram_access_token)
 
         self._logger.info('UpdateHandler configured.')
 
@@ -40,16 +40,20 @@ class UpdateHandler:
                                   reply_markup=self._data_storage.basic_keyboard)
 
     def handle_command(self, command: dict, bets_allowed: bool):
-        # TODO: add KeyError catching
-        chat_id = command['message']['from']['id']
-        command_type = command['message']['text'].split()
+        try:
+            chat_id = command['message']['from']['id']
+        except KeyError:
+            self._logger.error(f'Incorrect command structure: {command}')
+            self._sender.send_message_to_creator(f'Incorrect command structure: {command}')
+            return
 
+        command_type = command['message']['text'].split()
         state = self._data_storage.get_user_state(chat_id)
 
         if state:
             self._data_storage.set_user_state(None, chat_id)
 
-            self._sender.send_message(chat_id, self._data_storage.responses['default_answer_text'],
+            self._sender.send_message(chat_id, self._data_storage.responses['default_answer_text']['ru'],
                                       reply_markup=self._data_storage.basic_keyboard)
 
         elif command_type[0] in self._info_command_types:

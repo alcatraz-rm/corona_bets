@@ -21,11 +21,11 @@ class StatisticsParser:
                 'total': int(soup.select(self._total_selector)[0].text.replace(' ', '')),
                 'date': self._parse_date(soup.select(self._date_selector)[0].text)}
 
-    def event_check(self, control_value: int):
+    def event_check(self, control_value: int) -> bool:
         return self.update()['day'] != control_value
 
     @staticmethod
-    def _parse_date(date: str):
+    def _parse_date(date: str) -> datetime.datetime:
         year = 2020
         day_tmp = date.split()[3]
 

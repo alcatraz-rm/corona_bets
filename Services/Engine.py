@@ -188,7 +188,7 @@ class Engine:
         while True:
             listening_thread = threading.Thread(target=self._listening_for_updates, daemon=True)
             handling_thread = threading.Thread(target=self._updates_handling, daemon=True)
-            confirm_bets_thread = threading.Thread(target=self._bets_confirming, daemon=True)
+            confirm_bets_thread = threading.Thread(target=self._bets_confirming_true, daemon=True)
 
             listening_thread.start()
             handling_thread.start()
@@ -482,7 +482,26 @@ class Engine:
 
             for bet in bets_list:
                 time.sleep(5)  # simulates bet verifying process
-                self._data_storage.confirm_bet(bet['bet_id'])
+                self._data_storage.confirm_bet(bet['bet_id'], 0)
 
                 with self._lock:
                     self._updates_queue.put(deepcopy(bet))
+
+    def _bets_confirming_true(self):
+        while True:
+            with self._lock:
+                if self._threads_end_flag:
+                    return
+
+            users_list = self._data_storage.get_users_with_unconfirmed_bets()
+
+            if not users_list:
+                time.sleep(10)
+                continue
+
+            for user in users_list:
+                confirmed_bets = self._ether_scan.confirm_bets(user)
+
+                for bet in confirmed_bets:
+                    with self._lock:
+                        self._updates_queue.put(deepcopy(bet))

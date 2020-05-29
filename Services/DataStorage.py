@@ -16,8 +16,8 @@ class DataStorage(metaclass=Singleton):
 
         self._statistics_parser = StatisticsParser()
 
-        self.A_wallet = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-        self.B_wallet = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+        self.A_wallet = '0x34BC5AB1f9ABFA02C3A22354Bf1e11f7EA6614a1'.lower()
+        self.B_wallet = '0x7fa03c381D62DB37BcCb29e2Dab48d6D53c8a3d8'.lower()
         self.fee = 0.1
 
         self.cases_total = None
@@ -55,6 +55,14 @@ class DataStorage(metaclass=Singleton):
                 self._last_bet_id = max(bets_ids, key=lambda x: x[0])[0]
             else:
                 self._last_bet_id = 0
+
+            cursor.execute('SELECT ID from transactions')
+            transactions_ids = cursor.fetchall()
+
+            if transactions_ids:
+                self._last_transaction_id = max(transactions_ids, key=lambda x: x[0])[0]
+            else:
+                self._last_transaction_id = 0
 
             self._logger.info(f'Rates updates. Rate A: {self.rate_A}, Rate B: {self.rate_B}')
 
@@ -105,22 +113,60 @@ class DataStorage(metaclass=Singleton):
 
             self._logger.info('Create table "users".')
 
-            cursor.execute('CREATE TABLE transactions (ID integer PRIMARY KEY, amount float, hash text, from text, '
-                           'to text, is_correct integer)')
+            cursor.execute('CREATE TABLE transactions (ID integer PRIMARY KEY, amount float, hash text, from_ text, '
+                           'to_ text, is_correct integer)')
 
-            self._logger.info('Create table "transactions"')
+            cursor.execute("INSERT INTO transactions values (0, -1.0, 'default_', 'default_' , 'default_' , 0)")
+
+            self._logger.info('Create table "transactions" and add default transaction object.')
 
             cursor.execute('CREATE TABLE bets (ID integer PRIMARY KEY, category text, confirmed integer, wallet '
-                           'text, user integer, transaction_id integer, FOREIGN KEY (user) REFERENCES users(chat_id)),'
-                           'FOREIGN KEY (transaction_id) REFERENCES transactions(ID)')
+                           'text, user integer, transaction_id integer, FOREIGN KEY (user) REFERENCES users(chat_id),'
+                           'FOREIGN KEY (transaction_id) REFERENCES transactions(ID))')
 
-            self._logger.info('Create table "bets"')
+            self._logger.info('Create table "bets".')
 
         self._logger.info('Database was successfully configured.')
 
-    def add_transaction(self, chat_id: int, amount: int, transaction_hash: str, from_wallet: str, to_wallet: str,
-                        is_correct: int):
-        pass
+    def add_transaction(self, amount: float, transaction_hash: str, from_wallet: str, to_wallet: str, is_correct: int):
+        self._last_transaction_id += 1
+
+        with sqlite3.connect(self.__database_name) as connection:
+            cursor = connection.cursor()
+            cursor.execute(f"INSERT INTO transactions values ({self._last_transaction_id}, {amount}, "
+                           f"'{transaction_hash}', '{from_wallet}', '{to_wallet}', {is_correct})")
+
+        self._logger.info(f'Add new transaction: id - {self._last_transaction_id}, '
+                          f'amount - {amount}, from - {from_wallet}, transaction_hash - {transaction_hash}')
+
+        return self._last_transaction_id
+
+    def is_new_transaction(self, transaction_hash: str) -> bool:
+        with sqlite3.connect(self.__database_name) as connection:
+            cursor = connection.cursor()
+            cursor.execute(f"SELECT EXISTS(SELECT ID FROM transactions WHERE hash='{transaction_hash}')")
+            result = cursor.fetchall()
+
+        if not result[0][0]:
+            return True
+
+        return False
+
+    def get_users_with_unconfirmed_bets(self) -> list:
+        result = []
+
+        with sqlite3.connect(self.__database_name) as connection:
+            cursor = connection.cursor()
+            cursor.execute('SELECT ID,user,category,wallet from bets WHERE confirmed=0')
+
+        bets_list = [dict(bet_id=bet[0], chat_id=bet[1], wallet=bet[3], category=bet[2])
+                     for bet in cursor.fetchall()]
+
+        for bet in bets_list:
+            if not bet['chat_id'] in result:
+                result.append(bet['chat_id'])
+
+        return result
 
     def is_new_user(self, chat_id: int) -> bool:
         with sqlite3.connect(self.__database_name) as connection:
@@ -162,7 +208,7 @@ class DataStorage(metaclass=Singleton):
 
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute(f"INSERT INTO bets values ({self._last_bet_id}, '{category}', -1, NULL, {chat_id})")
+            cursor.execute(f"INSERT INTO bets values ({self._last_bet_id}, '{category}', -1, NULL, {chat_id}, 0)")
             connection.commit()
 
         self._logger.info(f'Add new bet: category - {category}, chat_id - {chat_id}')
@@ -235,18 +281,18 @@ class DataStorage(metaclass=Singleton):
 
             return [user_id[0] for user_id in cursor.fetchall()]
 
-    def get_unconfirmed_bets_list(self) -> list:
+    def get_unconfirmed_bets(self, chat_id: int) -> list:
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute('SELECT ID,user,category,wallet from bets WHERE confirmed=0')
+            cursor.execute(f'SELECT ID,user,category,wallet from bets WHERE confirmed=0 and user={chat_id}')
 
             return [dict(bet_id=bet[0], chat_id=bet[1], wallet=bet[3], category=bet[2])
                     for bet in cursor.fetchall()]
 
-    def confirm_bet(self, bet_id: int):
+    def confirm_bet(self, bet_id: int, transaction_id: int):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
-            cursor.execute(f'UPDATE bets SET confirmed=1 WHERE ID={bet_id}')
+            cursor.execute(f'UPDATE bets SET confirmed=1,transaction_id = {transaction_id} WHERE ID={bet_id}')
             connection.commit()
 
         self._logger.info(f'Bet confirmed, bet_id: {bet_id}')
