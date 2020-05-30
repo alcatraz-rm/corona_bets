@@ -11,11 +11,11 @@ from Services.Sender import Sender
 
 
 class EtherScan:
-    def __init__(self, telegram_access_token):
+    def __init__(self, telegram_access_token, etherscan_api_token):
         self._logger = logging.getLogger('Engine.EtherScan')
 
         self._requests_url = 'http://api.etherscan.io/api'
-        self._api_key = 'XJZ6BA37G1DG5MVJQQ4Z6SBRAK6FXCWMB1'
+        self._api_key = etherscan_api_token
         self._qr_url = 'https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=#&choe=UTF-8'
 
         self._data_storage = DataStorage()
@@ -38,11 +38,11 @@ class EtherScan:
 
         return True
 
-    def get_qr_link(self, wallet):
+    def get_qr_link(self, wallet: str) -> str:
         return self._qr_url.replace('#', wallet)
 
-    def _get_transactions(self, address):
-        params = {'module': 'account', 'action': 'txlist', 'address': address, 'start_block': 0,
+    def _get_transactions(self, wallet: str) -> list:
+        params = {'module': 'account', 'action': 'txlist', 'address': wallet, 'start_block': 0,
                   'end_block': 99999999, 'page': 1, 'offset': 1000, 'sort': 'desc', 'apikey': self._api_key}
 
         response = self._request_manager.request(self._requests_url, params, 'get')
@@ -58,22 +58,7 @@ class EtherScan:
             self._sender.send_message_to_creator(f'Error occurred while trying to get transactions: {response}')
             return []
 
-    # TODO: remember incorrect transactions
-    def find_valid_transaction(self, address, from_, to):
-        transaction_list = self._filter_transactions(from_, to, self._get_transactions(address))
-        transaction_list = self._filter_incorrect_transactions(transaction_list)
-
-        # TODO: maybe add timestamp filter
-        if len(transaction_list) > 0:
-            valid_transaction = transaction_list[0]
-            transaction_id = self._data_storage.add_transaction(valid_transaction['amount'], valid_transaction['hash'],
-                                                                valid_transaction['from'], valid_transaction['to'], 1)
-
-            return transaction_id
-
-        return -1
-
-    def _filter_transactions(self, to, transaction_list):
+    def _filter_transactions(self, to: str, transaction_list: list) -> list:
         result = []
         transaction_list = self._filter_incorrect_transactions(transaction_list)
 
@@ -83,14 +68,14 @@ class EtherScan:
 
         return result
 
-    def confirm_bets(self, chat_id: int):
+    def confirm_bets(self, chat_id: int) -> list:
         confirmed_bets = []
 
         bets_list = self._data_storage.get_unconfirmed_bets(chat_id)
         bets_by_wallets = {}
 
         if not bets_list:
-            return
+            return []
 
         for bet in bets_list:
             if bet['wallet'] not in bets_by_wallets:
@@ -139,6 +124,3 @@ class EtherScan:
                 result.append(transaction)
 
         return result
-
-
-wallet = '0x79289bb6b441cd337e2ad22b8f8202661d7b53f4'

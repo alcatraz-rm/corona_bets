@@ -8,3 +8,5 @@ requests==2.23.0
 soupsieve==2.0
 tornado==6.0.4
 urllib3==1.25.9
+
+Jinja2~=2.11.2

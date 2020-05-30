@@ -10,6 +10,7 @@ from datetime import datetime, date, timedelta
 from queue import Queue
 
 import requests
+from jinja2 import FileSystemLoader, Environment
 
 from Services.DataStorage import DataStorage
 from Services.EtherScan import EtherScan
@@ -20,17 +21,18 @@ from Services.UpdateHandler import UpdateHandler
 
 
 class Engine:
-    def __init__(self, telegram_access_token: str):
+    def __init__(self, telegram_access_token: str, etherscan_api_token: str):
         self._logger = logging.getLogger('Engine')
         self._configure_logger()
 
         self._requests_url = f'https://api.telegram.org/bot{telegram_access_token}/'
 
-        self._update_handler = UpdateHandler(telegram_access_token)
+        self._update_handler = UpdateHandler(telegram_access_token, etherscan_api_token)
         self._statistics_parser = StatisticsParser()
-        self._ether_scan = EtherScan(telegram_access_token)
+        self._ether_scan = EtherScan(telegram_access_token, etherscan_api_token)
         self._sender = Sender(telegram_access_token)
         self._request_manager = RequestManager()
+        self._templates_env = Environment(loader=FileSystemLoader('user_responses'))
 
         self._data_storage = DataStorage()
         self._data_storage.update_statistics()
@@ -188,7 +190,7 @@ class Engine:
         while True:
             listening_thread = threading.Thread(target=self._listening_for_updates, daemon=True)
             handling_thread = threading.Thread(target=self._updates_handling, daemon=True)
-            confirm_bets_thread = threading.Thread(target=self._bets_confirming_true, daemon=True)
+            confirm_bets_thread = threading.Thread(target=self._bets_confirming, daemon=True)
 
             listening_thread.start()
             handling_thread.start()
@@ -263,18 +265,16 @@ class Engine:
         users_ids_list = self._data_storage.get_users_ids_list()
         rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
 
-        timeout_message = self._data_storage.responses['timeout_message']['ru'] \
-            .replace('{rate_A}', str(rate_A)).replace('{rate_B}', rate_B)
+        timeout_message = self._templates_env.get_template('timeout_message.jinja').render(rate_A=rate_A, rate_B=rate_B)
 
         for user_id in users_ids_list:
             self._sender.send_message(user_id, timeout_message)
 
     def _broadcast_new_round_message(self, winner: str, rate: float):
-        new_round_message = self._data_storage.responses['new_round_message']['ru'] \
-            .replace('{winner}', str(winner)).replace('{rate}', str(rate)) \
-            .replace('{cases_day}', str(self._data_storage.cases_day)) \
-            .replace('{cases_total}', str(self._data_storage.cases_total)) \
-            .replace('{last_update_time}', str(self._data_storage.date))
+        new_round_message = self._templates_env \
+            .get_template('new_round_message.jinja') \
+            .render(rate=str(rate), winner=winner, cases_day=str(self._data_storage.cases_day),
+                    cases_total=str(self._data_storage.cases_total), last_update_time=str(self._data_storage.date))
 
         users = self._data_storage.get_users_ids_list()
         rate = float(rate)
@@ -290,6 +290,7 @@ class Engine:
 
     # TODO: optimize this (you may not form all message, before you should try ro find one verified bet
     #  with required category
+    # TODO: optimize it with Jinja
     def _generate_win_message(self, bet_list: list, winner: str, rate: float):
         total_amount = 0.0
         message = ''
@@ -298,15 +299,17 @@ class Engine:
             if bet['confirmed'] and bet['category'] == winner:
                 current_amount = self._data_storage.bet_amount * rate
 
-                message += self._data_storage.responses['win_message_one_bet']['ru'].replace('{bet_number}', str(n)) \
-                    .replace('{wallet}', bet['wallet']) \
-                    .replace('{amount}', str(math.trunc(current_amount * 1000) / 1000))
+                message += self._templates_env.get_template('win_message_one_bet.jinja') \
+                    .render(bet_number=str(n),
+                            wallet=bet['wallet'],
+                            amount=str(math.trunc(current_amount * 1000) / 1000))
 
                 total_amount += current_amount
 
         if total_amount > 0:
-            return message + self._data_storage.responses['win_message_total_amount']['ru'] \
-                .replace('{amount}', str(math.trunc(total_amount * 1000) / 1000))
+            return message + self._templates_env.get_template('win_message_total_amount.jinja') \
+                .render(
+                amount=str(math.trunc(total_amount * 1000) / 1000))
 
     def _configure_first_time(self):
         control_value = self._statistics_parser.update()['day']
@@ -428,10 +431,11 @@ class Engine:
             with self._lock:
                 self._updates_queue.put(update)
         else:
-            self._sender.send_message(update['chat_id'], self._data_storage.responses['bet_confirmed_message']['ru']
-                                      .replace('{bet_number}', str(bet_number)) \
-                                      .replace('{category}', update["category"]) \
-                                      .replace('{rate}', str(rate)).replace('{wallet}', update["wallet"]))
+            self._sender.send_message(update['chat_id'],
+                                      self._templates_env.get_template('bet_confirmed_message.jinja').render(
+                                          bet_number=str(bet_number),
+                                          category=update['category'],
+                                          rate=rate, wallet=update['wallet']))
 
     def _handle_callback_query(self, update: dict, bets_allowed: bool):
         try:
@@ -478,7 +482,7 @@ class Engine:
                 if self._threads_end_flag:
                     return
 
-            bets_list = self._data_storage.get_unconfirmed_bets_list()
+            bets_list = self._data_storage.get_unconfirmed_bets_all()
 
             for bet in bets_list:
                 time.sleep(5)  # simulates bet verifying process
