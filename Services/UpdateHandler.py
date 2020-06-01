@@ -5,28 +5,34 @@ from datetime import timedelta
 
 from jinja2 import FileSystemLoader, Environment
 
+from Services.Admin import Admin
 from Services.DataStorage import DataStorage
 from Services.EtherScan import EtherScan
 from Services.Sender import Sender
 
 
 class UpdateHandler:
-    def __init__(self, telegram_access_token: str, etherscan_api_token: str):
+    def __init__(self, settings):
         self._info_command_types = ['/start', '/help', '/how_many', '/status']
         self._action_command_types = ['/bet']
         self._admin_commands = ['/set_wallet', '/set_fee', '/set_vote_end_time', '/admin_cancel',
                                 '/stat', '/pay_out']
 
-        self._data_storage = DataStorage()
+        self._data_storage = DataStorage(settings)
         self._templates_env = Environment(loader=FileSystemLoader('user_responses'))
         self._logger = logging.getLogger('Engine.UpdateHandler')
 
-        self._sender = Sender(telegram_access_token)
-        self._ether_scan = EtherScan(telegram_access_token, etherscan_api_token)
+        self._sender = Sender(settings)
+        self._ether_scan = EtherScan(settings)
+        self._admin = Admin(settings)
 
         self._logger.info('UpdateHandler configured.')
 
     def handle_text_message(self, message: dict, bets_allowed=True):
+        if self._admin.is_authorize_query(message):
+            self._admin.auth(message)
+            return
+
         try:
             chat_id = message['message']['from']['id']
         except KeyError:
@@ -52,6 +58,11 @@ class UpdateHandler:
             return
 
         command_type = command['message']['text'].split()
+
+        if command_type[0] in self._admin_commands:
+            self._admin.handle_command(command)
+            return
+
         state = self._data_storage.get_user_state(chat_id)
 
         if state:
@@ -60,7 +71,7 @@ class UpdateHandler:
             self._sender.send_message(chat_id, self._templates_env.get_template('default_answer_text.jinja').render(),
                                       reply_markup=self._data_storage.basic_keyboard)
 
-        elif command_type[0] in self._info_command_types:
+        if command_type[0] in self._info_command_types:
             if command_type[0] == '/start':
                 self._handle_start_command(chat_id)
 
@@ -80,6 +91,9 @@ class UpdateHandler:
                 else:
                     self._sender.send_message(chat_id,
                                               self._templates_env.get_template('bet_timeout_message.jinja').render())
+
+        # elif command_type[0] in self._admin_commands:
+        #     self._admin.handle_command(command)
 
         else:
             self._sender.send_message(chat_id,

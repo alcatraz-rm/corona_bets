@@ -10,26 +10,25 @@ from Services.StatisticsParser import StatisticsParser
 # TODO: create config with main info, like DB name, default bet amount and etc.
 # TODO: change returning None to returning something different
 class DataStorage(metaclass=Singleton):
-    def __init__(self):
+    def __init__(self, settings):
         self._logger = logging.getLogger('Engine.DataStorage')
-        self.__database_name = 'user_data.db'
+        self.__database_name = settings['DataStorage']['database_name']
 
-        self._statistics_parser = StatisticsParser()
+        self._statistics_parser = StatisticsParser(settings)
 
-        self.A_wallet = '0x34BC5AB1f9ABFA02C3A22354Bf1e11f7EA6614a1'.lower()
-        self.B_wallet = '0x7fa03c381D62DB37BcCb29e2Dab48d6D53c8a3d8'.lower()
-        self.fee = 0.1
+        self._A_wallet = '0x34BC5AB1f9ABFA02C3A22354Bf1e11f7EA6614a1'.lower()
+        self._B_wallet = '0x7fa03c381D62DB37BcCb29e2Dab48d6D53c8a3d8'.lower()
+        self._fee = float(settings['DataStorage']['default_fee'])
 
-        self.cases_total = None
-        self.cases_day = None
-        self.date = None
+        self._cases_total = None
+        self._cases_day = None
+        self._date = None
 
-        self.control_value = 123
-        self.time_limit = 'time limit here'
+        self._control_value = 123
+        self._time_limit = 'time limit here'
 
-        self.bet_amount = 0.03
+        self._bet_amount = float(settings['DataStorage']['default_bet_amount'])
 
-        self.responses = self._read_responses()
         self.update_statistics()
 
         if os.path.exists(self.__database_name):
@@ -43,8 +42,8 @@ class DataStorage(metaclass=Singleton):
             self._logger.info('Create database.')
 
             self._configure_database_first_time()
-            self.rate_A = 'N/a'
-            self.rate_B = 'N/a'
+            self._rate_A = 'N/a'
+            self._rate_B = 'N/a'
 
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
@@ -73,31 +72,91 @@ class DataStorage(metaclass=Singleton):
 
         self._logger.info('DataStorage configured.')
 
-    @staticmethod
-    def _read_responses():
-        with open('responses.json', 'r', encoding='utf-8') as responses_file:
-            return json.load(responses_file)
+    @property
+    def fee(self):
+        return self._fee
+
+    @fee.setter
+    def fee(self, fee):
+        self._fee = fee
+        self._update_rates()
+
+    @property
+    def rate_A(self):
+        return self._rate_A
+
+    @property
+    def rate_B(self):
+        return self._rate_B
+
+    @property
+    def bet_amount(self):
+        return self._bet_amount
+
+    @property
+    def A_wallet(self):
+        return self._A_wallet
+
+    @property
+    def B_wallet(self):
+        return self._B_wallet
+
+    @A_wallet.setter
+    def A_wallet(self, wallet):
+        self._A_wallet = wallet
+
+    @B_wallet.setter
+    def B_wallet(self, wallet):
+        self._B_wallet = wallet
+
+    @property
+    def cases_day(self):
+        return self._cases_day
+
+    @property
+    def cases_total(self):
+        return self._cases_total
+
+    @property
+    def date(self):
+        return self._date
+
+    @property
+    def control_value(self):
+        return self._control_value
+
+    @control_value.setter
+    def control_value(self, new_control_value):
+        self._control_value = new_control_value
+
+    @property
+    def time_limit(self):
+        return self._time_limit
+
+    @time_limit.setter
+    def time_limit(self, new_time_limit):
+        self._time_limit = new_time_limit
 
     def _update_rates(self):
         bets_A = self.count_confirmed_bets('A')
         bets_B = self.count_confirmed_bets('B')
 
         if bets_A:
-            self.rate_A = ((bets_A + bets_B) / bets_A) * (1 - self.fee)
+            self._rate_A = ((bets_A + bets_B) / bets_A) * (1 - self.fee)
         else:
-            self.rate_A = 'N/a'
+            self._rate_A = 'N/a'
 
         if bets_B:
-            self.rate_B = ((bets_A + bets_B) / bets_B) * (1 - self.fee)
+            self._rate_B = ((bets_A + bets_B) / bets_B) * (1 - self.fee)
         else:
-            self.rate_B = 'N/a'
+            self._rate_B = 'N/a'
 
     def update_statistics(self):
         statistics = self._statistics_parser.update()
 
-        self.cases_total = statistics['total']
-        self.cases_day = statistics['day']
-        self.date = statistics['date']
+        self._cases_total = statistics['total']
+        self._cases_day = statistics['day']
+        self._date = statistics['date']
 
         self._logger.info('Statistics updated.')
 
@@ -116,7 +175,7 @@ class DataStorage(metaclass=Singleton):
             cursor.execute('CREATE TABLE transactions (ID integer PRIMARY KEY, amount float, hash text, from_ text, '
                            'to_ text, is_correct integer)')
 
-            cursor.execute("INSERT INTO transactions values (0, -1.0, 'default_', 'default_' , 'default_' , 0)")
+            cursor.execute("INSERT INTO transactions values (0, 0.0, 'default_', 'default_' , 'default_' , 0)")
 
             self._logger.info('Create table "transactions" and add default transaction object.')
 
@@ -127,6 +186,19 @@ class DataStorage(metaclass=Singleton):
             self._logger.info('Create table "bets".')
 
         self._logger.info('Database was successfully configured.')
+
+    def total_eth(self, category):
+        with sqlite3.connect(self.__database_name) as connection:
+            cursor = connection.cursor()
+
+            wallet = self.B_wallet
+            if category == 'A':
+                wallet = self.A_wallet
+
+            cursor.execute(f"SELECT amount from transactions WHERE to_='{wallet}'")
+            transactions_sums = [amount[0] for amount in cursor.fetchall()]
+
+        return sum(transactions_sums)
 
     def add_transaction(self, amount: float, transaction_hash: str, from_wallet: str, to_wallet: str, is_correct: int):
         self._last_transaction_id += 1
@@ -252,6 +324,15 @@ class DataStorage(metaclass=Singleton):
 
             return len(cursor.fetchall())
 
+    def count_unconfirmed_bets(self, category: str) -> int:
+        with sqlite3.connect(self.__database_name) as connection:
+            cursor = connection.cursor()
+            cursor.execute(f"SELECT ID from bets WHERE confirmed=0 AND category='{category}'")
+
+            self._logger.info('Successfully count confirmed bets.')
+
+            return len(cursor.fetchall())
+
     def reset_bets(self):
         with sqlite3.connect(self.__database_name) as connection:
             cursor = connection.cursor()
@@ -260,7 +341,7 @@ class DataStorage(metaclass=Singleton):
             cursor.execute('UPDATE users SET state=NULL')
             connection.commit()
 
-        self.rate_A, self.rate_B = 'N/a', 'N/a'
+        self._rate_A, self._rate_B = 'N/a', 'N/a'
         self._last_bet_id = 0
 
         self._logger.info('Reset users bets and rates.')

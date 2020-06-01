@@ -10,17 +10,18 @@ from Services.RequestManager import RequestManager
 from Services.Sender import Sender
 
 
+# TODO: dump all this info to config
 class EtherScan:
-    def __init__(self, telegram_access_token, etherscan_api_token):
+    def __init__(self, settings):
         self._logger = logging.getLogger('Engine.EtherScan')
 
-        self._requests_url = 'http://api.etherscan.io/api'
-        self._api_key = etherscan_api_token
-        self._qr_url = 'https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=#&choe=UTF-8'
+        self._requests_url = settings['EtherScan']['etherscan_requests_url']
+        self._api_key = settings['EtherScan']['etherscan_api_key']
+        self._qr_url = settings['EtherScan']['qr_url']
 
-        self._data_storage = DataStorage()
-        self._request_manager = RequestManager()
-        self._sender = Sender(telegram_access_token)
+        self._data_storage = DataStorage(settings)
+        self._request_manager = RequestManager(settings)
+        self._sender = Sender(settings)
 
         self._logger.info('EtherScan configured.')
 

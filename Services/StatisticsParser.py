@@ -4,14 +4,13 @@ import requests
 from bs4 import BeautifulSoup
 
 
+# TODO: make requests with RequestManager
 class StatisticsParser:
-    def __init__(self):
-        self._event_url = 'https://xn--80aesfpebagmfblc0a.xn--p1ai/'
-        self._date_selector = '#operational-data > div.cv-banner__left > div'
-        self._day_selector = '#app > article > section.cv-banner > div > div > div.cv-banner__bottom > ' \
-                             'div.cv-countdown > div:nth-child(3) > div.cv-countdown__item-value._accent > span'
-        self._total_selector = '#app > article > section.cv-banner > div > div > div.cv-banner__bottom > ' \
-                               'div.cv-countdown > div:nth-child(2) > div.cv-countdown__item-value._accent > span'
+    def __init__(self, settings):
+        self._event_url = settings['StatisticsParser']['statistics_url']
+        self._date_selector = settings['StatisticsParser']['date_selector']
+        self._day_selector = settings['StatisticsParser']['cases_day_selector']
+        self._total_selector = settings['StatisticsParser']['cases_total_selector']
 
     def update(self) -> dict:
         response = requests.get(self._event_url)
@@ -26,7 +25,7 @@ class StatisticsParser:
 
     @staticmethod
     def _parse_date(date: str) -> datetime.datetime:
-        year = 2020
+        year = datetime.datetime.now().year
         day_tmp = date.split()[3]
 
         month_name = date.split()[4].lower()

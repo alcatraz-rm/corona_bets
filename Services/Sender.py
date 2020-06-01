@@ -7,10 +7,11 @@ from Services.RequestManager import RequestManager
 
 
 class Sender:
-    def __init__(self, telegram_access_token: str):
+    def __init__(self, settings):
         self._logger = logging.getLogger('Engine.Sender')
-        self._request_manager = RequestManager()
-        self._requests_url = f'https://api.telegram.org/bot{telegram_access_token}/'
+        self._request_manager = RequestManager(settings)
+        self._requests_url = f"{settings['General']['telegram_requests_url']}" \
+                             f"{settings['General']['telegram_access_token']}/"
 
         self._logger.info('Sender initialized.')
 

@@ -1,3 +1,4 @@
+import configparser
 import json
 import logging
 import math
@@ -6,7 +7,7 @@ import platform
 import threading
 import time
 from copy import deepcopy
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from queue import Queue
 
 import requests
@@ -21,21 +22,23 @@ from Services.UpdateHandler import UpdateHandler
 
 
 class Engine:
-    def __init__(self, telegram_access_token: str, etherscan_api_token: str):
+    def __init__(self):
+        self._settings = self._read_settings()
+
         self._logger = logging.getLogger('Engine')
         self._configure_logger()
 
-        self._requests_url = f'https://api.telegram.org/bot{telegram_access_token}/'
+        self._requests_url = f"{self._settings['General']['telegram_requests_url']}" \
+                             f"{self._settings['General']['telegram_access_token']}/"
 
-        self._update_handler = UpdateHandler(telegram_access_token, etherscan_api_token)
-        self._statistics_parser = StatisticsParser()
-        self._ether_scan = EtherScan(telegram_access_token, etherscan_api_token)
-        self._sender = Sender(telegram_access_token)
-        self._request_manager = RequestManager()
-        self._templates_env = Environment(loader=FileSystemLoader('user_responses'))
+        self._data_storage = DataStorage(self._settings)
 
-        self._data_storage = DataStorage()
-        self._data_storage.update_statistics()
+        self._update_handler = UpdateHandler(self._settings)
+        self._statistics_parser = StatisticsParser(self._settings)
+        self._ether_scan = EtherScan(self._settings)
+        self._sender = Sender(self._settings)
+        self._request_manager = RequestManager(self._settings)
+        self._templates_env = Environment(loader=FileSystemLoader(self._settings['General']['user_responses_path']))
 
         self._updates_queue = Queue()
         self._lock = threading.Lock()
@@ -43,10 +46,29 @@ class Engine:
 
         self._logger.info('Engine initialized.')
 
+    def _read_settings(self):
+        telegram_access_token = os.environ.get('telegram_access_token')
+        etherscan_api_key = os.environ.get('etherscan_access_token')
+        admin_chat_id = os.environ.get('admin_chat_id')
+
+        config = configparser.ConfigParser()
+
+        try:
+            config.read('config.ini', encoding='utf-8')
+        except configparser.Error:
+            self._logger.critical('Error reading config file.')
+            exit(-1)
+
+        config['General']['telegram_access_token'] = telegram_access_token
+        config['EtherScan']['etherscan_api_key'] = etherscan_api_key
+        config['Admin']['admin_chat_id'] = str(admin_chat_id)
+
+        return config
+
     def _configure_logger(self):
         self._logger.setLevel(logging.DEBUG)
 
-        file_handler = logging.FileHandler('log.log', 'w', 'utf-8')
+        file_handler = logging.FileHandler(self._settings['LoggerConfiguration']['log_name'], 'w', 'utf-8')
         file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self._logger.addHandler(file_handler)
 
@@ -126,7 +148,8 @@ class Engine:
             self._logger.error(f'Logging error: {exception}\n'
                                f'Callback query that an error occurred during processing: {callback_query}')
             self._sender.send_message_to_creator(f'Logging error: {exception}\n'
-                                                 f'Callback query that an error occurred during processing: {callback_query}')
+                                                 f'Callback query that an error occurred during processing: '
+                                                 f'{callback_query}')
             return
 
         try:
@@ -139,7 +162,8 @@ class Engine:
             self._logger.error(f'Logging error: {exception}\n'
                                f'Callback query that an error occurred during processing: {callback_query}')
             self._sender.send_message_to_creator(f'Logging error: {exception}\n'
-                                                 f'Callback query that an error occurred during processing: {callback_query}')
+                                                 f'Callback query that an error occurred during processing: '
+                                                 f'{callback_query}')
             return
 
         log_message['from']['name'] = name
@@ -155,7 +179,8 @@ class Engine:
             self._logger.error(f'Logging error: {exception}\n'
                                f'Callback query that an error occurred during processing: {callback_query}')
             self._sender.send_message_to_creator(f'Logging error: {exception}\n'
-                                                 f'Callback query that an error occurred during processing: {callback_query}')
+                                                 f'Callback query that an error occurred during processing: '
+                                                 f'{callback_query}')
             return
 
         self._logger.info(f'Get new update: {json.dumps(log_message, indent=4, ensure_ascii=False)}')
@@ -333,12 +358,15 @@ class Engine:
         fee = float(input('enter the fee: '))
         self._data_storage.fee = fee
 
+        # time limit - nearest 6:00 GMT (9:00 MSK)
         now = datetime.utcnow()
 
-        tomorrow = date(now.year, now.month, now.day) + timedelta(days=1)
+        if now.hour < 6:
+            self._data_storage.time_limit = datetime(now.year, now.month, now.day, 6, 0, 0, 0)
+        else:
+            tomorrow = date(now.year, now.month, now.day) + timedelta(days=1)
 
-        # time limit - 6:00 GMT (9:00 MSK)
-        self._data_storage.time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
+            self._data_storage.time_limit = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 6, 0, 0, 0)
 
         self._threads_end_flag = False
 
@@ -384,6 +412,7 @@ class Engine:
                 login = update['message']['from']['username']
             else:
                 login = None
+
         except KeyError as exception:
             self._logger.error(f'Error occurred while trying to extract user data from update: {exception}\n'
                                f'Update: {update}')
