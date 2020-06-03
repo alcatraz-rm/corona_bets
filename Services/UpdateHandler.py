@@ -300,7 +300,7 @@ class UpdateHandler:
             self._logger.error(f'Error while trying to extract chat_id, incorrect command: {command}')
             return
 
-        rate_A, rate_B = self._data_storage.represented_rates()
+        rate_A, rate_B = self._data_storage.represented_rates
 
         announcement = self._templates_env.get_template('announcement.jinja').render(
             cases_day=str(self._data_storage.cases_day),
@@ -327,7 +327,7 @@ class UpdateHandler:
                                   reply_markup=self._data_storage.basic_keyboard)
 
     def _handle_help_command(self, chat_id: int):
-        rate_A, rate_B = self._data_storage.represented_rates()
+        rate_A, rate_B = self._data_storage.represented_rates
 
         message = self._templates_env.get_template('help_message.jinja').render(
             control_value_plus_1=str(self._data_storage.control_value + 1),
@@ -351,7 +351,7 @@ class UpdateHandler:
 
     def _handle_status_command(self, chat_id: int):
         bet_list = self._data_storage.get_user_bets(chat_id)
-        rate_A, rate_B = self._data_storage.represented_rates()
+        rate_A, rate_B = self._data_storage.represented_rates
 
         if len(bet_list) > 0:
             status_message = ''

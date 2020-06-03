@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timedelta
 
 from jinja2 import FileSystemLoader, Environment
@@ -113,7 +114,7 @@ class Admin:
         fee_A = eth_A * self._data_storage.fee
         fee_B = eth_B * self._data_storage.fee
 
-        profit = fee_A + fee_B
+        profit = math.trunc((fee_A + fee_B) * 1000) / 1000
 
         rate_A, rate_B = self._data_storage.represented_rates
 

@@ -517,7 +517,7 @@ class Engine:
                                                                         bet['wallet'], self._data_storage.A_wallet, 1)
                 else:
                     transaction_id = self._data_storage.add_transaction(self._data_storage.bet_amount, 'default_',
-                                                                        bet['wallet'], self._data_storage.A_wallet, 1)
+                                                                        bet['wallet'], self._data_storage.B_wallet, 1)
 
                 self._data_storage.confirm_bet(bet['bet_id'], transaction_id)
 
