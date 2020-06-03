@@ -3,22 +3,27 @@ import datetime
 import requests
 from bs4 import BeautifulSoup
 
+from Services.RequestManager import RequestManager
 
-# TODO: make requests with RequestManager
+
 class StatisticsParser:
     def __init__(self, settings):
+        self._requests_manager = RequestManager(settings)
+
         self._event_url = settings['StatisticsParser']['statistics_url']
         self._date_selector = settings['StatisticsParser']['date_selector']
         self._day_selector = settings['StatisticsParser']['cases_day_selector']
         self._total_selector = settings['StatisticsParser']['cases_total_selector']
 
     def update(self) -> dict:
-        response = requests.get(self._event_url)
-        soup = BeautifulSoup(response.text, 'lxml')
+        response = self._requests_manager.request(self._event_url, {}, 'get')
 
-        return {'day': int(soup.select(self._day_selector)[0].text.replace(' ', '')),
-                'total': int(soup.select(self._total_selector)[0].text.replace(' ', '')),
-                'date': self._parse_date(soup.select(self._date_selector)[0].text)}
+        if isinstance(response, requests.Response):
+            soup = BeautifulSoup(response.text, 'lxml')
+
+            return {'day': int(soup.select(self._day_selector)[0].text.replace(' ', '')),
+                    'total': int(soup.select(self._total_selector)[0].text.replace(' ', '')),
+                    'date': self._parse_date(soup.select(self._date_selector)[0].text)}
 
     def event_check(self, control_value: int) -> bool:
         return self.update()['day'] != control_value

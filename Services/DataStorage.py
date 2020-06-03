@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import sqlite3
 
@@ -7,8 +8,6 @@ from Services.Singleton import Singleton
 from Services.StatisticsParser import StatisticsParser
 
 
-# TODO: create config with main info, like DB name, default bet amount and etc.
-# TODO: change returning None to returning something different
 class DataStorage(metaclass=Singleton):
     def __init__(self, settings):
         self._logger = logging.getLogger('Engine.DataStorage')
@@ -66,15 +65,19 @@ class DataStorage(metaclass=Singleton):
             self._logger.info(f'Rates updates. Rate A: {self.rate_A}, Rate B: {self.rate_B}')
 
         self.basic_keyboard = json.dumps({'keyboard': [
-                                                [{'text': '/how_many'}, {'text': '/bet'}],
-                                                [{'text': '/help'}, {'text': '/status'}]],
-                                          'resize_keyboard': True})
+            [{'text': '/how_many'}, {'text': '/bet'}],
+            [{'text': '/help'}, {'text': '/status'}]],
+            'resize_keyboard': True})
 
         self._logger.info('DataStorage configured.')
 
     @property
     def fee(self):
         return self._fee
+
+    @property
+    def represented_rates(self):
+        return self._represent_rates(self._rate_A, self._rate_B)
 
     @fee.setter
     def fee(self, fee):
@@ -150,6 +153,20 @@ class DataStorage(metaclass=Singleton):
             self._rate_B = ((bets_A + bets_B) / bets_B) * (1 - self.fee)
         else:
             self._rate_B = 'N/a'
+
+    @staticmethod
+    def _represent_rates(rate_A, rate_B) -> (str, str):
+        if rate_A != 'N/a' and rate_B != 'N/a':
+            return str(math.trunc(rate_A * 1000) / 1000), str(math.trunc(rate_B * 1000) / 1000)
+
+        elif rate_A != 'N/a':
+            return str(math.trunc(rate_A * 1000) / 1000), str(rate_B)
+
+        elif rate_B != 'N/a':
+            return str(math.trunc(rate_B * 1000) / 1000), str(rate_A)
+
+        else:
+            return str(rate_A), str(rate_B)
 
     def update_statistics(self):
         statistics = self._statistics_parser.update()

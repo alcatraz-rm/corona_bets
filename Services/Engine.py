@@ -7,7 +7,7 @@ import platform
 import threading
 import time
 from copy import deepcopy
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta
 from queue import Queue
 
 import requests
@@ -199,7 +199,7 @@ class Engine:
         while True:
             remaining_time = (self._data_storage.time_limit - datetime.utcnow()).total_seconds()
 
-            if remaining_time <= 5:
+            if remaining_time <= 10:
                 with self._lock:
                     self._threads_end_flag = True
                 return
@@ -262,7 +262,7 @@ class Engine:
             new_control_value = self._data_storage.cases_day
             self._data_storage.update_statistics()
 
-            rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+            rate_A, rate_B = self._data_storage.represented_rates
 
             if self._data_storage.cases_day <= self._data_storage.control_value:
                 winner = 'A'
@@ -288,7 +288,7 @@ class Engine:
 
     def _broadcast_time_limit_message(self):
         users_ids_list = self._data_storage.get_users_ids_list()
-        rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+        rate_A, rate_B = self._data_storage.represented_rates
 
         timeout_message = self._templates_env.get_template('timeout_message.jinja').render(rate_A=rate_A, rate_B=rate_B)
 
@@ -313,17 +313,14 @@ class Engine:
             if win_message:
                 self._sender.send_message(user, win_message)
 
-    # TODO: optimize this (you may not form all message, before you should try ro find one verified bet
-    #  with required category
-    # TODO: optimize it with Jinja
     def _generate_win_message(self, bet_list: list, winner: str, rate: float):
         total_amount = 0.0
+        current_amount = self._data_storage.bet_amount * rate
+
         message = ''
 
         for n, bet in enumerate(bet_list):
             if bet['confirmed'] and bet['category'] == winner:
-                current_amount = self._data_storage.bet_amount * rate
-
                 message += self._templates_env.get_template('win_message_one_bet.jinja') \
                     .render(bet_number=str(n),
                             wallet=bet['wallet'],
@@ -444,7 +441,7 @@ class Engine:
         user_state = self._data_storage.get_user_state(update['chat_id'])
         bets_list = self._data_storage.get_user_bets(update['chat_id'])
 
-        rate_A, rate_B = self._update_handler.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+        rate_A, rate_B = self._data_storage.represented_rates
 
         if update['category'] == 'A':
             rate = rate_A
@@ -515,7 +512,14 @@ class Engine:
 
             for bet in bets_list:
                 time.sleep(5)  # simulates bet verifying process
-                self._data_storage.confirm_bet(bet['bet_id'], 0)
+                if bet['category'] == 'A':
+                    transaction_id = self._data_storage.add_transaction(self._data_storage.bet_amount, 'default_',
+                                                                        bet['wallet'], self._data_storage.A_wallet, 1)
+                else:
+                    transaction_id = self._data_storage.add_transaction(self._data_storage.bet_amount, 'default_',
+                                                                        bet['wallet'], self._data_storage.A_wallet, 1)
+
+                self._data_storage.confirm_bet(bet['bet_id'], transaction_id)
 
                 with self._lock:
                     self._updates_queue.put(deepcopy(bet))

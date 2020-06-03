@@ -1,6 +1,5 @@
 import json
 import logging
-import math
 from datetime import timedelta
 
 from jinja2 import FileSystemLoader, Environment
@@ -91,9 +90,6 @@ class UpdateHandler:
                 else:
                     self._sender.send_message(chat_id,
                                               self._templates_env.get_template('bet_timeout_message.jinja').render())
-
-        # elif command_type[0] in self._admin_commands:
-        #     self._admin.handle_command(command)
 
         else:
             self._sender.send_message(chat_id,
@@ -304,7 +300,7 @@ class UpdateHandler:
             self._logger.error(f'Error while trying to extract chat_id, incorrect command: {command}')
             return
 
-        rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+        rate_A, rate_B = self._data_storage.represented_rates()
 
         announcement = self._templates_env.get_template('announcement.jinja').render(
             cases_day=str(self._data_storage.cases_day),
@@ -326,26 +322,12 @@ class UpdateHandler:
 
         self._data_storage.set_user_state('wait_choice', chat_id)
 
-    @staticmethod
-    def represent_rates(rate_A, rate_B) -> (str, str):
-        if rate_A != 'N/a' and rate_B != 'N/a':
-            return str(math.trunc(rate_A * 1000) / 1000), str(math.trunc(rate_B * 1000) / 1000)
-
-        elif rate_A != 'N/a':
-            return str(math.trunc(rate_A * 1000) / 1000), str(rate_B)
-
-        elif rate_B != 'N/a':
-            return str(math.trunc(rate_B * 1000) / 1000), str(rate_A)
-
-        else:
-            return str(rate_A), str(rate_B)
-
     def _handle_start_command(self, chat_id: int):
         self._sender.send_message(chat_id, self._templates_env.get_template('start_message.jinja').render(),
                                   reply_markup=self._data_storage.basic_keyboard)
 
     def _handle_help_command(self, chat_id: int):
-        rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+        rate_A, rate_B = self._data_storage.represented_rates()
 
         message = self._templates_env.get_template('help_message.jinja').render(
             control_value_plus_1=str(self._data_storage.control_value + 1),
@@ -369,7 +351,7 @@ class UpdateHandler:
 
     def _handle_status_command(self, chat_id: int):
         bet_list = self._data_storage.get_user_bets(chat_id)
-        rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+        rate_A, rate_B = self._data_storage.represented_rates()
 
         if len(bet_list) > 0:
             status_message = ''

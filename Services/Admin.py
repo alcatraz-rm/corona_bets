@@ -1,4 +1,3 @@
-import math
 from datetime import datetime, timedelta
 
 from jinja2 import FileSystemLoader, Environment
@@ -36,9 +35,11 @@ class Admin:
 
         return False
 
-    # catch KeyError
     def is_authorize_query(self, message: dict) -> bool:
-        chat_id = message['message']['from']['id']
+        try:
+            chat_id = message['message']['from']['id']
+        except KeyError:
+            return False
 
         return not self._find_auth_query_index(chat_id) == -1
 
@@ -114,7 +115,7 @@ class Admin:
 
         profit = fee_A + fee_B
 
-        rate_A, rate_B = self.represent_rates(self._data_storage.rate_A, self._data_storage.rate_B)
+        rate_A, rate_B = self._data_storage.represented_rates
 
         self._sender.send_message(self._admin_chat_id, statistics_message.render(
             confirmed_A=str(confirmed_A),
@@ -129,20 +130,6 @@ class Admin:
             rate_B=rate_B,
             profit=str(profit)
         ))
-
-    @staticmethod
-    def represent_rates(rate_A, rate_B) -> (str, str):
-        if rate_A != 'N/a' and rate_B != 'N/a':
-            return str(math.trunc(rate_A * 1000) / 1000), str(math.trunc(rate_B * 1000) / 1000)
-
-        elif rate_A != 'N/a':
-            return str(math.trunc(rate_A * 1000) / 1000), str(rate_B)
-
-        elif rate_B != 'N/a':
-            return str(math.trunc(rate_B * 1000) / 1000), str(rate_A)
-
-        else:
-            return str(rate_A), str(rate_B)
 
     def _set_vote_end_time(self, args: list):
         try:
@@ -246,3 +233,5 @@ class Admin:
 
             if self._auth_queries[auth_query_index]['tries'] == 0:
                 del (self._auth_queries[auth_query_index])
+                self._sender.send_message(chat_id,
+                                          self._templates_env.get_template('create_new_auth_query.jinja').render())

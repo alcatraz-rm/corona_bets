@@ -1,16 +1,13 @@
 import logging
-from pprint import pprint
 from string import ascii_letters
 
 import requests
 
-# TODO: put api token into environment variable and create config with links
 from Services.DataStorage import DataStorage
 from Services.RequestManager import RequestManager
 from Services.Sender import Sender
 
 
-# TODO: dump all this info to config
 class EtherScan:
     def __init__(self, settings):
         self._logger = logging.getLogger('Engine.EtherScan')
@@ -44,7 +41,7 @@ class EtherScan:
 
     def _get_transactions(self, wallet: str) -> list:
         params = {'module': 'account', 'action': 'txlist', 'address': wallet, 'start_block': 0,
-                  'end_block': 99999999, 'page': 1, 'offset': 1000, 'sort': 'desc', 'apikey': self._api_key}
+                  'end_block': 99999999, 'offset': 10000, 'sort': 'desc', 'apikey': self._api_key}
 
         response = self._request_manager.request(self._requests_url, params, 'get')
 
