@@ -55,7 +55,7 @@ class Admin:
         self._auth_queries = valid_auth_queries
 
         for n, session in enumerate(self._admin_sessions_list):
-            if session['login_time'] - datetime.utcnow() < timedelta(minutes=30):
+            if datetime.utcnow() - session['login_time'] < timedelta(minutes=30):
                 valid_sessions.append(self._admin_sessions_list[n])
 
         self._admin_sessions_list = valid_sessions
