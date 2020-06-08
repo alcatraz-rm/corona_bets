@@ -228,16 +228,28 @@ class UpdateHandler:
                 last_bet_category = self._data_storage.get_last_bet_category(chat_id)
 
                 if last_bet_category == 'A':
-                    qr_link = self._ether_scan.get_qr_link(self._data_storage.A_wallet)
+                    if self._data_storage.A_wallet_qr_id:
+                        qr = self._data_storage.A_wallet_qr_id
+                    else:
+                        qr = self._ether_scan.get_qr_link(self._data_storage.A_wallet)
                 else:
-                    qr_link = self._ether_scan.get_qr_link(self._data_storage.B_wallet)
+                    if self._data_storage.B_wallet_qr_id:
+                        qr = self._data_storage.B_wallet_qr_id
+                    else:
+                        qr = self._ether_scan.get_qr_link(self._data_storage.B_wallet)
 
-                self._sender.send_photo(chat_id, qr_link,
-                                        reply_markup=json.dumps({'inline_keyboard': [[{'text': 'Далее',
-                                                                                       'callback_data': 'next'},
-                                                                                      {'text': 'Отменить',
-                                                                                       'callback_data': 'reject'}]],
-                                                                 'resize_keyboard': True}))
+                file_id = self._sender.send_photo(chat_id, qr,
+                                                  reply_markup=json.dumps({'inline_keyboard': [
+                                                      [{'text': 'Далее',
+                                                        'callback_data': 'next'},
+                                                       {'text': 'Отменить',
+                                                        'callback_data': 'reject'}]],
+                                                      'resize_keyboard': True}))
+
+                if last_bet_category == 'A' and file_id:
+                    self._data_storage.A_wallet_qr_id = file_id
+                elif file_id:
+                    self._data_storage.B_wallet_qr_id = file_id
 
                 self._data_storage.set_user_state('wait_choice_after_vote', chat_id)
 

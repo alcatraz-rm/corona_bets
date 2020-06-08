@@ -62,7 +62,13 @@ class Sender:
                                                       'reply_markup': reply_markup}, method='post')
 
             if isinstance(response, requests.Response):
-                self._logger.info(f'Response for answer callback query: {response.json()}')
+                self._logger.info(f'Response for send photo: {response.json()}')
+
+                try:
+                    return response.json()['result']['photo'][0]['file_id']
+                except KeyError:
+                    self._logger.error(f'Incorrect response for send photo: {response.json()}')
+                    self.send_message_to_creator(f'Incorrect response for send photo: {response.json()}')
             else:
                 self._logger.error(f'Error occurred during sending photo: {response}')
                 self.send_message_to_creator(f'Error occurred during sending photo: {response}')
@@ -72,7 +78,14 @@ class Sender:
                                                      {'chat_id': chat_id, 'photo': photo}, method='post')
 
             if isinstance(response, requests.Response):
-                self._logger.info(f'Response for answer callback query: {response.json()}')
+                self._logger.info(f'Response for send photo: {response.json()}')
+
+                try:
+                    return response.json()['result']['photo'][0]['file_id']
+                except KeyError:
+                    self._logger.error(f'Incorrect response for send photo: {response.json()}')
+                    self.send_message_to_creator(f'Incorrect response for send photo: {response.json()}')
+
             else:
                 self._logger.error(f'Error occurred during sending photo: {response}')
                 self.send_message_to_creator(f'Error occurred during sending photo: {response}')

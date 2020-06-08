@@ -17,6 +17,10 @@ class DataStorage(metaclass=Singleton):
 
         self._A_wallet = '0x34BC5AB1f9ABFA02C3A22354Bf1e11f7EA6614a1'.lower()
         self._B_wallet = '0x7fa03c381D62DB37BcCb29e2Dab48d6D53c8a3d8'.lower()
+
+        self._A_wallet_qr_id = None
+        self._B_wallet_qr_id = None
+
         self._fee = float(settings['DataStorage']['default_fee'])
 
         self._cases_total = None
@@ -72,6 +76,22 @@ class DataStorage(metaclass=Singleton):
         self._logger.info('DataStorage configured.')
 
     @property
+    def A_wallet_qr_id(self):
+        return self._A_wallet_qr_id
+
+    @A_wallet_qr_id.setter
+    def A_wallet_qr_id(self, file_id):
+        self._A_wallet_qr_id = file_id
+
+    @property
+    def B_wallet_qr_id(self):
+        return self._B_wallet_qr_id
+
+    @B_wallet_qr_id.setter
+    def B_wallet_qr_id(self, file_id):
+        self._B_wallet_qr_id = file_id
+
+    @property
     def fee(self):
         return self._fee
 
@@ -96,6 +116,10 @@ class DataStorage(metaclass=Singleton):
     def bet_amount(self):
         return self._bet_amount
 
+    @bet_amount.setter
+    def bet_amount(self, bet_amount):
+        self._bet_amount = bet_amount
+
     @property
     def A_wallet(self):
         return self._A_wallet
@@ -107,10 +131,12 @@ class DataStorage(metaclass=Singleton):
     @A_wallet.setter
     def A_wallet(self, wallet):
         self._A_wallet = wallet
+        self._A_wallet_qr_id = None
 
     @B_wallet.setter
     def B_wallet(self, wallet):
         self._B_wallet = wallet
+        self._B_wallet_qr_id = None
 
     @property
     def cases_day(self):
