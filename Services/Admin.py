@@ -13,6 +13,9 @@ class Admin:
         self._admin_chat_id = int(settings['Admin']['admin_chat_id'])
         self._admin_pin_code = '1234'  # save it with something like keyring
 
+        self._session_time = int(settings['Admin']['admin_session_time'])
+        self._auth_time = int(settings['Admin']['admin_auth_time'])
+
         self._sender = Sender(settings)
         self._ether_scan = EtherScan(settings)
         self._data_storage = DataStorage(settings)
@@ -22,8 +25,7 @@ class Admin:
         self._auth_queries = []
         self._max_auth_tries = int(settings['Admin']['max_auth_tries'])
 
-        self._commands = ['/set_wallet', '/set_fee', '/set_vote_end_time', '/admin_cancel',
-                          '/stat', '/pay_out']
+        self._commands = ['/set_wallet', '/set_fee', '/set_vote_end_time', '/stat', '/log']
 
     def _has_active_session(self, chat_id: int) -> bool:
         for n, session in enumerate(self._admin_sessions_list):
@@ -49,13 +51,13 @@ class Admin:
         valid_sessions = []
 
         for n, auth_query in enumerate(self._auth_queries):
-            if auth_query['creation_time'] - datetime.utcnow() < timedelta(minutes=5):
+            if auth_query['creation_time'] - datetime.utcnow() < timedelta(minutes=self._auth_time):
                 valid_auth_queries.append(self._auth_queries[n])
 
         self._auth_queries = valid_auth_queries
 
         for n, session in enumerate(self._admin_sessions_list):
-            if datetime.utcnow() - session['login_time'] < timedelta(minutes=30):
+            if datetime.utcnow() - session['login_time'] < timedelta(minutes=self._session_time):
                 valid_sessions.append(self._admin_sessions_list[n])
 
         self._admin_sessions_list = valid_sessions
@@ -63,7 +65,12 @@ class Admin:
     def handle_command(self, command: dict):
         self._check_auth_info()
 
-        chat_id = command['message']['from']['id']
+        try:
+            chat_id = command['message']['from']['id']
+        except KeyError:
+            # add logging
+            self._sender.send_message_to_creator(f'Invalid message structure: {command}')
+            return
 
         if command['message']['chat']['id'] != self._admin_chat_id:
             self._sender.send_message(chat_id,
@@ -94,10 +101,12 @@ class Admin:
                 self._set_vote_end_time(args)
             elif command_type == '/stat':
                 self._statistics()
-            elif command_type == '/pay_out':
-                pass
-            elif command_type == 'admin_cancel':
-                pass
+            elif command_type == '/log':
+                self._send_log(args)
+
+    def _send_log(self, args):
+        with open('log.log', 'rb') as log:
+            self._sender.send_file(self._admin_chat_id, log)
 
     def _statistics(self):
         statistics_message = self._templates_env.get_template('statistics_message.jinja')
@@ -152,7 +161,7 @@ class Admin:
         new_time_limit = self._data_storage.time_limit
         new_time_limit.hour = hour
 
-        if datetime.utcnow() > new_time_limit:
+        if datetime.utcnow() >= new_time_limit:
             self._sender.send_message(self._admin_chat_id,
                                       self._templates_env.get_template('incorrect_time.jinja').render())
             return
@@ -207,6 +216,7 @@ class Admin:
             self._data_storage.A_wallet = wallet
         else:
             self._data_storage.B_wallet = wallet
+
         self._sender.send_message(self._admin_chat_id,
                                   self._templates_env.get_template('info_successfully_changed.jinja').render())
 

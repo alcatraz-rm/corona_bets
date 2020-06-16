@@ -21,6 +21,7 @@ from Services.StatisticsParser import StatisticsParser
 from Services.UpdateHandler import UpdateHandler
 
 
+# TODO: add command for log sending
 class Engine:
     def __init__(self):
         self._settings = self._read_settings()
@@ -302,7 +303,9 @@ class Engine:
                     cases_total=str(self._data_storage.cases_total), last_update_time=str(self._data_storage.date))
 
         users = self._data_storage.get_users_ids_list()
-        rate = float(rate)
+
+        if rate != 'N/a':
+            rate = float(rate)
 
         for user in users:
             self._sender.send_message(user, new_round_message)

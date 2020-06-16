@@ -32,6 +32,15 @@ class Sender:
 
         self._logger.info(f'Sent: {json.dumps(result, indent=4, ensure_ascii=False)}')
 
+    def send_file(self, chat_id: int, content):
+        response = self._request_manager.request(self._requests_url + 'sendDocument', params={'chat_id': chat_id},
+                                                 files={'document': content}, method='post')
+        if isinstance(response, requests.Response):
+            self._logger.info(f'Response for send file: {response.json()}')
+        else:
+            self._logger.error(f'Error occurred during sending file: {response}')
+            self.send_message_to_creator(f'Error occurred during sending file: {response}')
+
     def answer_callback_query(self, chat_id: int, callback_query_id: int, text: str):
         if text:
             response = self._request_manager.request(self._requests_url + 'answerCallbackQuery',

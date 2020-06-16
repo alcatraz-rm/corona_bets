@@ -12,15 +12,20 @@ class RequestManager:
         self._session.mount(settings['EtherScan']['etherscan_requests_url'], self._basic_http_adapter)
         self._session.mount(settings['StatisticsParser']['statistics_url'], self._basic_http_adapter)
 
-    def request(self, url: str, params: dict, method: str):
+    def request(self, url: str, params: dict, method: str, files: dict = None):
         try:
             if method == 'get':
                 if len(params) > 0:
                     return self._session.get(url, params=params, timeout=self._basic_timeout)
                 return self._session.get(url, timeout=self._basic_timeout)
             elif method == 'post':
-                if len(params) > 0:
+                if len(params) > 0 and files:
+                    return self._session.post(url, params=params, timeout=self._basic_timeout, files=files)
+                elif files:
+                    return self._session.post(url, timeout=self._basic_timeout, files=files)
+                elif len(params) > 0:
                     return self._session.post(url, params=params, timeout=self._basic_timeout)
+
                 return self._session.post(url, timeout=self._basic_timeout)
             else:
                 return 'Invalid http-method.'

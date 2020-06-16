@@ -14,8 +14,7 @@ class UpdateHandler:
     def __init__(self, settings):
         self._info_command_types = ['/start', '/help', '/how_many', '/status']
         self._action_command_types = ['/bet']
-        self._admin_commands = ['/set_wallet', '/set_fee', '/set_vote_end_time', '/admin_cancel',
-                                '/stat', '/pay_out']
+        self._admin_commands = ['/set_wallet', '/set_fee', '/set_vote_end_time', '/stat', '/log']
 
         self._data_storage = DataStorage(settings)
         self._templates_env = Environment(loader=FileSystemLoader('user_responses'))
