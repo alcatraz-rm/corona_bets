@@ -201,7 +201,7 @@ class DataStorage(metaclass=Singleton):
             return str(math.trunc(rate_A * 1000) / 1000), str(rate_B)
 
         elif rate_B != 'N/a':
-            return str(math.trunc(rate_B * 1000) / 1000), str(rate_A)
+            return str(rate_A), str(math.trunc(rate_B * 1000) / 1000)
 
         else:
             return str(rate_A), str(rate_B)
